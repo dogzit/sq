@@ -16,12 +16,16 @@ function createPrismaClient() {
     throw new Error("DATABASE_URL олдсонгүй! .env файлаа шалгана уу.");
   }
 
-  // PrismaNeon v7.x is a factory that creates its own Pool internally
   const adapter = new PrismaNeon({ connectionString });
-
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Lazy singleton — only connects when first accessed at runtime, not at build time
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    if (!globalForPrisma.prisma) {
+      globalForPrisma.prisma = createPrismaClient();
+    }
+    return (globalForPrisma.prisma as any)[prop];
+  },
+});
