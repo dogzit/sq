@@ -28,9 +28,11 @@ model User {
   streak        Int      @default(0)
   lastActiveAt  DateTime @default(now())
   createdAt     DateTime @default(now())
+  emailVerified Boolean  @default(false)
   updatedAt     DateTime @updatedAt
 
   // ── Relations ──
+  otpCodes        OtpCode[]
   ownedLobbies    Lobby[]           @relation("LobbyOwner")
   lobbyMembers    LobbyMember[]
   submissions     QuestSubmission[]
@@ -46,6 +48,32 @@ model User {
 
   @@index([xp(sort: Desc)])
   @@index([email])
+}
+
+model PendingSignup {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  displayName  String
+  passwordHash String
+  otpCode      String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([email])
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  code      String
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, used])
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

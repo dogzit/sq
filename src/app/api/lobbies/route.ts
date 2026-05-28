@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { generateLobbyCode } from "@/lib/utils";
+import { lobbyCreateSchema } from "@/lib/validations";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -30,8 +31,10 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name } = await request.json();
-  if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
+  const body = await request.json();
+  const parsed = lobbyCreateSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
+  const { name } = parsed.data;
 
   let code = generateLobbyCode();
   while (await prisma.lobby.findUnique({ where: { code } })) {

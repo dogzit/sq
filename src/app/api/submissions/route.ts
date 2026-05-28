@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { uploadImage } from "@/lib/cloudinary";
+import { uploadToImgbb } from "@/lib/imgur";
+import { submissionSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { questId, photo, caption } = await request.json();
-
-  if (!questId || !photo) {
-    return NextResponse.json({ error: "Quest ID and photo required" }, { status: 400 });
+  const body = await request.json();
+  const parsed = submissionSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
   }
+  const { questId, photo, caption } = parsed.data;
 
   const quest = await prisma.quest.findUnique({ where: { id: questId } });
   if (!quest || quest.status !== "ACTIVE") {
@@ -25,8 +27,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Already submitted" }, { status: 409 });
   }
 
-  // Upload to Cloudinary
-  const { url } = await uploadImage(photo);
+  // Upload to imgbb
+  const { url } = await uploadToImgbb(photo);
 
   // Veto deadline = 1 hour from now
   const vetoDeadline = new Date(Date.now() + 60 * 60 * 1000);

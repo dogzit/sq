@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -10,6 +13,18 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -32,7 +47,7 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
     other: [
-      { rel: "mask-icon", url: "/icons/icon.svg", color: "#00f0ff" },
+      { rel: "mask-icon", url: "/icons/icon.svg", color: "#7C5CFF" },
     ],
   },
   applicationName: "SideQuest",
@@ -41,7 +56,7 @@ export const metadata: Metadata = {
   other: {
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
-    "msapplication-TileColor": "#0a0a0f",
+    "msapplication-TileColor": "#07070A",
     "msapplication-tap-highlight": "no",
   },
 };
@@ -51,9 +66,23 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0a0a0f",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F5F5F7" },
+    { media: "(prefers-color-scheme: dark)", color: "#07070A" },
+  ],
   viewportFit: "cover",
 };
+
+const themeScript = `
+(function(){
+  try {
+    var t = localStorage.getItem('theme');
+    if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch(e) {}
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -63,14 +92,28 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
         <meta name="format-detection" content="telephone=no" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-dvh flex flex-col bg-[var(--bg-primary)] bg-grid overscroll-none">
-        {children}
+      <body className="min-h-dvh flex flex-col overscroll-none">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
+        <Toaster
+          richColors
+          position="top-center"
+          toastOptions={{
+            style: {
+              borderRadius: "0.75rem",
+              fontFamily: "var(--font-geist-sans)",
+            },
+          }}
+        />
       </body>
     </html>
   );

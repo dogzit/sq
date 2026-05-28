@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { sendEmergencyQuestEmail } from "@/lib/email";
+import { emergencySchema } from "@/lib/validations";
 
 const emergencyQuests = [
   { title: "Flash Mob Dance!", description: "Drop everything and do a 15-second dance — video proof NOW!", xpReward: 200, difficulty: "LEGENDARY" as const },
@@ -15,8 +17,10 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { lobbyId } = await request.json();
-  if (!lobbyId) return NextResponse.json({ error: "Lobby ID required" }, { status: 400 });
+  const body = await request.json();
+  const parsed = emergencySchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
+  const { lobbyId } = parsed.data;
 
   // Verify user is admin/owner
   const member = await prisma.lobbyMember.findUnique({
@@ -40,6 +44,28 @@ export async function POST(request: Request) {
       lobbyId,
     },
   });
+
+  // Send email notifications to all lobby members (non-blocking)
+  const lobbyWithMembers = await prisma.lobby.findUnique({
+    where: { id: lobbyId },
+    select: {
+      name: true,
+      members: {
+        select: { user: { select: { email: true } } },
+      },
+    },
+  });
+
+  if (lobbyWithMembers) {
+    const emails = lobbyWithMembers.members.map((m) => m.user.email);
+    sendEmergencyQuestEmail(
+      emails,
+      `⚡ ${template.title}`,
+      template.description,
+      lobbyWithMembers.name,
+      15
+    ).catch((err) => console.error("Failed to send emergency emails:", err));
+  }
 
   return NextResponse.json({ quest }, { status: 201 });
 }

@@ -1,15 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyPassword, createToken } from "@/lib/auth";
+import { sendOtpEmail } from "@/lib/email";
+import { rateLimitByIp } from "@/lib/rate-limit";
+import { loginSchema } from "@/lib/validations";
 import { cookies } from "next/headers";
+
+function generateCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json();
+    const { success } = rateLimitByIp(request, "login", { maxRequests: 5, windowMs: 60_000 });
+    if (!success) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password required" }, { status: 400 });
+    const body = await request.json();
+    const parsed = loginSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 400 });
     }
+    const { email, password } = parsed.data;
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
@@ -19,6 +30,28 @@ export async function POST(request: Request) {
     const valid = await verifyPassword(password, user.passwordHash);
     if (!valid) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    // If email not verified, send OTP and require verification
+    if (!user.emailVerified) {
+      const code = generateCode();
+      await prisma.otpCode.updateMany({
+        where: { userId: user.id, used: false },
+        data: { used: true },
+      });
+      await prisma.otpCode.create({
+        data: {
+          code,
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        },
+      });
+      await sendOtpEmail(email, code);
+
+      return NextResponse.json({
+        needsVerification: true,
+        email: user.email,
+      });
     }
 
     await prisma.user.update({
@@ -47,7 +80,8 @@ export async function POST(request: Request) {
         streak: user.streak,
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("Login error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

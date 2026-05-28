@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { locationSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { latitude, longitude, accuracy } = await request.json();
-
-  if (latitude == null || longitude == null) {
-    return NextResponse.json({ error: "Coordinates required" }, { status: 400 });
-  }
+  const body = await request.json();
+  const parsed = locationSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
+  const { latitude, longitude, accuracy } = parsed.data;
 
   const location = await prisma.userLocation.upsert({
     where: { userId: user.id },

@@ -2,16 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { calculateLevel } from "@/lib/utils";
+import { answerSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { questionId, selectedIndex, responseTimeMs } = await request.json();
-
-  if (questionId == null || selectedIndex == null || responseTimeMs == null) {
-    return NextResponse.json({ error: "All fields required" }, { status: 400 });
-  }
+  const body = await request.json();
+  const parsed = answerSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
+  const { questionId, selectedIndex, responseTimeMs } = parsed.data;
 
   const question = await prisma.qAQuestion.findUnique({
     where: { id: questionId },

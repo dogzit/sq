@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { lobbyJoinSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { code } = await request.json();
-  if (!code) return NextResponse.json({ error: "Invite code required" }, { status: 400 });
+  const body = await request.json();
+  const parsed = lobbyJoinSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
+  const { code } = parsed.data;
 
   const lobby = await prisma.lobby.findUnique({
     where: { code: code.toUpperCase() },

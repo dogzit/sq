@@ -1,4 +1,4 @@
-import { neonConfig, Pool } from "@neondatabase/serverless";
+import { neonConfig } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@/generated/prisma/client";
 
@@ -16,13 +16,10 @@ function createPrismaClient() {
     throw new Error("DATABASE_URL олдсонгүй! .env файлаа шалгана уу.");
   }
 
-  const pool = new Pool({ connectionString });
-  const adapter = new PrismaNeon(pool as any);
+  // PrismaNeon v7.x is a factory that creates its own Pool internally
+  const adapter = new PrismaNeon({ connectionString });
 
-  // Зөвхөн адаптераа дамжуулна, өөр илүү дутуу property байж болохгүй
-  return new PrismaClient({
-    adapter: adapter as any,
-  });
+  return new PrismaClient({ adapter });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

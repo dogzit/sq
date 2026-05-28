@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
   turbopack: {},
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "res.cloudinary.com" },
+      { protocol: "https", hostname: "i.ibb.co" },
     ],
   },
   headers: async () => [

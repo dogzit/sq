@@ -6,9 +6,20 @@ const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || "fallback-secret-change-me"
 );
 
-const publicPaths = ["/login", "/register", "/api/auth/login", "/api/auth/register"];
+const publicPaths = [
+  "/login",
+  "/register",
+  "/verify",
+  "/forgot-password",
+  "/offline",
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/auth/otp",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+];
 
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (publicPaths.some((p) => pathname.startsWith(p))) {
@@ -17,6 +28,9 @@ export async function middleware(request: NextRequest) {
 
   const token = request.cookies.get("token")?.value;
   if (!token) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -27,12 +41,14 @@ export async function middleware(request: NextRequest) {
     headers.set("x-username", payload.username as string);
     return NextResponse.next({ request: { headers } });
   } catch {
-    const response = NextResponse.redirect(new URL("/login", request.url));
+    const response = pathname.startsWith("/api/")
+      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      : NextResponse.redirect(new URL("/login", request.url));
     response.cookies.delete("token");
     return response;
   }
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|manifest.json).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|sw\\.js|workbox-).*)"],
 };
