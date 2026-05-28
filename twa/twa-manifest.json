@@ -1,0 +1,54 @@
+{
+  "packageId": "com.sidequest.app",
+  "host": "YOUR_DOMAIN.vercel.app",
+  "name": "SideQuest",
+  "launcherName": "SideQuest",
+  "display": "standalone",
+  "themeColor": "#0a0a0f",
+  "navigationColor": "#12121a",
+  "navigationColorDark": "#0a0a0f",
+  "navigationDividerColor": "#00f0ff",
+  "backgroundColor": "#0a0a0f",
+  "enableNotifications": true,
+  "startUrl": "/dashboard",
+  "iconUrl": "https://YOUR_DOMAIN.vercel.app/icons/icon-512.png",
+  "maskableIconUrl": "https://YOUR_DOMAIN.vercel.app/icons/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "sidequest"
+  },
+  "appVersionCode": 1,
+  "appVersionName": "1.0.0",
+  "shortcuts": [
+    {
+      "name": "Daily Quests",
+      "shortName": "Quests",
+      "url": "/quests",
+      "chosenIconUrl": "https://YOUR_DOMAIN.vercel.app/icons/icon-96.png"
+    },
+    {
+      "name": "My Party",
+      "shortName": "Party",
+      "url": "/lobbies",
+      "chosenIconUrl": "https://YOUR_DOMAIN.vercel.app/icons/icon-96.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://YOUR_DOMAIN.vercel.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": {
+      "enabled": true
+    },
+    "playBilling": {
+      "enabled": false
+    }
+  },
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "orientation": "portrait"
+}
