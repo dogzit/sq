@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { calculateLevel } from "@/lib/utils";
 import { answerSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
@@ -27,13 +26,14 @@ export async function POST(request: Request) {
 
   const isCorrect = selectedIndex === question.correctIndex;
 
-  // XP: correct = base 20, + speed bonus (max 30 if under 3s)
-  let xpEarned = 0;
+  // Coins only (no XP) — prevents grind through repeated trivia
+  // 5 coins per correct answer, speed bonus: +3 if under 3s, +2 if under 5s, +1 if under 10s
+  let coinsEarned = 0;
   if (isCorrect) {
-    xpEarned = 20;
-    if (responseTimeMs < 3000) xpEarned += 30;
-    else if (responseTimeMs < 5000) xpEarned += 20;
-    else if (responseTimeMs < 10000) xpEarned += 10;
+    coinsEarned = 5;
+    if (responseTimeMs < 3000) coinsEarned += 3;
+    else if (responseTimeMs < 5000) coinsEarned += 2;
+    else if (responseTimeMs < 10000) coinsEarned += 1;
   }
 
   const answer = await prisma.qAAnswer.create({
@@ -41,32 +41,23 @@ export async function POST(request: Request) {
       selectedIndex,
       isCorrect,
       responseTimeMs,
-      xpEarned,
+      xpEarned: 0,
       userId: user.id,
       questionId,
     },
   });
 
-  if (xpEarned > 0) {
-    const newXp = user.xp + xpEarned;
+  if (coinsEarned > 0) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { xp: newXp, level: calculateLevel(newXp) },
+      data: { coins: { increment: coinsEarned } },
     });
-
-    // Update lobby XP
-    if (question.session.lobbyId) {
-      await prisma.lobbyMember.updateMany({
-        where: { userId: user.id, lobbyId: question.session.lobbyId },
-        data: { xpInLobby: { increment: xpEarned } },
-      });
-    }
   }
 
   return NextResponse.json({
     answer,
     correct: isCorrect,
     correctIndex: question.correctIndex,
-    xpEarned,
+    coinsEarned,
   });
 }

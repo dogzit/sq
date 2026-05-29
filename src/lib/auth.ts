@@ -55,6 +55,7 @@ export async function getCurrentUser() {
       displayName: true,
       avatarUrl: true,
       xp: true,
+      coins: true,
       level: true,
       streak: true,
     },

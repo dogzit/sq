@@ -290,7 +290,7 @@ export default function AdminPage() {
                     <div className="text-xs text-muted-foreground truncate">@{u.username} · {u.email}</div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] text-muted-foreground">Lvl {u.level}</span>
-                      <span className="font-mono text-[10px] text-neon-gold">{u.xp} XP</span>
+                      <span className="font-mono text-[10px] text-neon-gold">{u.xp} XP · 🪙{u.coins ?? 0}</span>
                       <span className="text-[10px] text-muted-foreground">{u.streak} streak</span>
                       {u.emailVerified && <span className="text-[10px] text-neon-green">✓</span>}
                     </div>
@@ -373,7 +373,7 @@ export default function AdminPage() {
                     <div className="text-sm font-semibold">{item.name}</div>
                     <div className="text-xs text-muted-foreground truncate">{item.description}</div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="pill bg-neon-gold/10 text-neon-gold text-[10px]">{item.price} XP</span>
+                      <span className="pill bg-neon-gold/10 text-neon-gold text-[10px]">🪙 {item.price}</span>
                       <span className="text-[10px] text-muted-foreground">{item.itemType}</span>
                       <span className="text-[10px] text-muted-foreground">{item._count.purchases} purchased</span>
                     </div>
@@ -434,6 +434,7 @@ export default function AdminPage() {
 // ── User Edit Modal ──
 function UserEditModal({ user, onClose, onSave }: { user: any; onClose: () => void; onSave: (id: string, u: any) => void }) {
   const [xp, setXp] = useState(String(user.xp));
+  const [coins, setCoins] = useState(String(user.coins ?? 0));
   const [level, setLevel] = useState(String(user.level));
   const [streak, setStreak] = useState(String(user.streak));
 
@@ -452,6 +453,11 @@ function UserEditModal({ user, onClose, onSave }: { user: any; onClose: () => vo
               className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
           </div>
           <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Coins 🪙</label>
+            <input type="number" value={coins} onChange={(e) => setCoins(e.target.value)}
+              className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
+          </div>
+          <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Level</label>
             <input type="number" value={level} onChange={(e) => setLevel(e.target.value)}
               className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
@@ -465,7 +471,7 @@ function UserEditModal({ user, onClose, onSave }: { user: any; onClose: () => vo
 
         <div className="flex gap-2">
           <button onClick={onClose} className="btn-game-outline flex-1 text-sm">Цуцлах</button>
-          <button onClick={() => onSave(user.id, { xp: Number(xp), level: Number(level), streak: Number(streak) })} className="btn-game flex-1 text-sm">Хадгалах</button>
+          <button onClick={() => onSave(user.id, { xp: Number(xp), coins: Number(coins), level: Number(level), streak: Number(streak) })} className="btn-game flex-1 text-sm">Хадгалах</button>
         </div>
       </div>
     </div>
@@ -505,7 +511,7 @@ function ShopItemModal({ item, onClose, onSave }: { item: any; onClose: () => vo
               className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Price (XP)</label>
+            <label className="text-xs font-medium text-muted-foreground">Price (Coins 🪙)</label>
             <input type="number" value={price} onChange={(e) => setPrice(e.target.value)}
               className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
           </div>

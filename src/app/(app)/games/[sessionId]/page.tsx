@@ -30,7 +30,7 @@ export default function GamePage() {
   const [session, setSession] = useState<Session | null>(null);
   const [currentRound, setCurrentRound] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [result, setResult] = useState<{ correct: boolean; correctIndex: number; xpEarned: number } | null>(null);
+  const [result, setResult] = useState<{ correct: boolean; correctIndex: number; coinsEarned: number } | null>(null);
   const [timer, setTimer] = useState(15);
   const [startTime, setStartTime] = useState(0);
   const [totalXp, setTotalXp] = useState(0);
@@ -77,10 +77,10 @@ export default function GamePage() {
       });
       const data = await res.json();
       setResult(data);
-      setTotalXp((prev) => prev + (data.xpEarned || 0));
+      setTotalXp((prev) => prev + (data.coinsEarned || 0));
       setScore((prev) => ({ correct: prev.correct + (data.correct ? 1 : 0), total: prev.total + 1 }));
     } catch {
-      setResult({ correct: index === currentQuestion.correctIndex, correctIndex: currentQuestion.correctIndex, xpEarned: 0 });
+      setResult({ correct: index === currentQuestion.correctIndex, correctIndex: currentQuestion.correctIndex, coinsEarned: 0 });
     }
   }, [selected, currentQuestion, startTime]);
 
@@ -133,7 +133,7 @@ export default function GamePage() {
               </div>
               <div>
                 <div className="font-mono text-2xl font-bold text-neon-gold text-glow-gold">+{totalXp}</div>
-                <div className="text-[11px] text-muted-foreground">XP Earned</div>
+                <div className="text-[11px] text-muted-foreground">Coins</div>
               </div>
             </div>
 
@@ -202,13 +202,20 @@ export default function GamePage() {
           {currentQuestion.options.map((option, i) => {
             let extraClass = "game-card p-4 w-full text-left text-sm font-medium flex items-center gap-3 ";
 
-            if (selected !== null) {
-              if (i === result?.correctIndex) {
+            if (selected !== null && result) {
+              if (i === result.correctIndex) {
                 extraClass += "ring-2 ring-neon-green glow-green text-neon-green ";
-              } else if (i === selected && !result?.correct) {
+              } else if (i === selected && !result.correct) {
                 extraClass += "ring-2 ring-neon-red glow-red text-neon-red opacity-70 ";
               } else {
                 extraClass += "opacity-30 ";
+              }
+            } else if (selected !== null) {
+              // Waiting for result — show neutral selected state
+              if (i === selected) {
+                extraClass += "ring-2 ring-neon-purple glow-purple ";
+              } else {
+                extraClass += "opacity-40 ";
               }
             } else {
               extraClass += "cursor-pointer active:scale-[0.97] ";
@@ -239,7 +246,7 @@ export default function GamePage() {
             <div className={`game-card p-4 text-center ${result.correct ? "ring-1 ring-neon-green/30" : "ring-1 ring-neon-red/30"}`}>
               <span className="font-display text-base font-bold">
                 {result.correct ? (
-                  <span className="text-neon-green">Correct! +{result.xpEarned} XP</span>
+                  <span className="text-neon-green">Correct! +{result.coinsEarned} 🪙</span>
                 ) : (
                   <span className="text-neon-red">Wrong!</span>
                 )}

@@ -26,7 +26,7 @@ export async function GET() {
   const recentUsers = await prisma.user.findMany({
     take: 50,
     orderBy: { createdAt: "desc" },
-    select: { id: true, username: true, displayName: true, email: true, xp: true, level: true, streak: true, createdAt: true, emailVerified: true },
+    select: { id: true, username: true, displayName: true, email: true, xp: true, coins: true, level: true, streak: true, createdAt: true, emailVerified: true },
   });
 
   const activeQuests = await prisma.quest.findMany({
@@ -102,15 +102,16 @@ export async function PUT(request: Request) {
 
   switch (type) {
     case "user": {
-      const { id, xp, level, streak } = body;
+      const { id, xp, coins, level, streak } = body;
       const updated = await prisma.user.update({
         where: { id },
         data: {
           ...(xp !== undefined && { xp: Number(xp) }),
+          ...(coins !== undefined && { coins: Number(coins) }),
           ...(level !== undefined && { level: Number(level) }),
           ...(streak !== undefined && { streak: Number(streak) }),
         },
-        select: { id: true, username: true, displayName: true, xp: true, level: true, streak: true },
+        select: { id: true, username: true, displayName: true, xp: true, coins: true, level: true, streak: true },
       });
       return NextResponse.json({ updated });
     }

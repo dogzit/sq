@@ -115,14 +115,14 @@ export default function ShopPage() {
       <TopBar title="Shop" />
 
       <AnimatedList className="px-4 py-4 space-y-4 max-w-2xl mx-auto pb-24">
-        {/* XP Balance */}
+        {/* Coin Balance */}
         <AnimatedItem>
           <div className="game-card p-4 flex items-center justify-between">
             <div>
-              <div className="text-xs text-muted-foreground">Таны XP</div>
-              <div className="font-mono text-2xl font-bold text-neon-gold">{user?.xp ?? 0}</div>
+              <div className="text-xs text-muted-foreground">Таны Coin</div>
+              <div className="font-mono text-2xl font-bold text-neon-gold">{user?.coins ?? 0}</div>
             </div>
-            <div className="text-3xl">💰</div>
+            <div className="text-3xl">🪙</div>
           </div>
         </AnimatedItem>
 
@@ -159,7 +159,7 @@ export default function ShopPage() {
               ) : (
                 items.map((item) => {
                   const tc = typeConfig[item.itemType] || typeConfig.TITLE;
-                  const canAfford = (user?.xp ?? 0) >= item.price;
+                  const canAfford = (user?.coins ?? 0) >= item.price;
                   const alreadyOwned = item.itemType === "TITLE" && purchased.some((p) => p.shopItemId === item.id);
 
                   return (
@@ -174,7 +174,7 @@ export default function ShopPage() {
                           <p className="text-xs text-muted-foreground mb-3">{item.description}</p>
                           <div className="flex items-center justify-between">
                             <span className="pill bg-neon-gold/10 text-neon-gold font-mono">
-                              {item.price} XP
+                              🪙 {item.price}
                             </span>
                             {alreadyOwned ? (
                               <span className="text-xs text-neon-green font-medium">Авсан</span>
@@ -188,7 +188,7 @@ export default function ShopPage() {
                                     : "bg-secondary text-muted-foreground cursor-not-allowed"
                                 }`}
                               >
-                                {buying === item.id ? "..." : canAfford ? "Худалдаж авах" : "XP хүрэхгүй"}
+                                {buying === item.id ? "..." : canAfford ? "Худалдаж авах" : "Coin хүрэхгүй"}
                               </button>
                             )}
                           </div>

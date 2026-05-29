@@ -131,6 +131,7 @@ async function resolveSubmission(
   }
 
   const finalXp = Math.round(submission.quest.xpReward * multiplier);
+  const finalCoins = Math.round(submission.quest.xpReward * 0.2 * multiplier);
   const submitter = await prisma.user.findUnique({ where: { id: submission.userId } });
   if (!submitter) return;
 
@@ -139,11 +140,11 @@ async function resolveSubmission(
   await prisma.$transaction([
     prisma.questSubmission.update({
       where: { id: submission.id },
-      data: { vetoStatus: "APPROVED", xpAwarded: finalXp },
+      data: { vetoStatus: "APPROVED", xpAwarded: finalXp, coinsAwarded: finalCoins },
     }),
     prisma.user.update({
       where: { id: submission.userId },
-      data: { xp: newXp, level: calculateLevel(newXp), streak: { increment: 1 } },
+      data: { xp: newXp, coins: { increment: finalCoins }, level: calculateLevel(newXp), streak: { increment: 1 } },
     }),
     ...(submission.quest.lobbyId
       ? [prisma.lobbyMember.updateMany({

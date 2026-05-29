@@ -86,7 +86,7 @@ export function useShop() {
   return {
     items: data?.items || [],
     purchased: data?.purchased || [],
-    userXp: data?.userXp || 0,
+    userCoins: data?.userCoins || 0,
     isLoading,
     isError: error,
     mutate,

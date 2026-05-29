@@ -61,6 +61,7 @@ export async function POST(request: Request) {
   }
 
   const xpAwarded = Math.round(quest.xpReward * multiplier);
+  const coinsAwarded = Math.round(quest.xpReward * 0.2 * multiplier);
   const newXp = user.xp + xpAwarded;
 
   const [submission] = await prisma.$transaction([
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
         caption,
         vetoStatus: "APPROVED",
         xpAwarded,
+        coinsAwarded,
         userId: user.id,
         questId,
       },
@@ -78,6 +80,7 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: {
         xp: newXp,
+        coins: { increment: coinsAwarded },
         level: calculateLevel(newXp),
         streak: { increment: 1 },
       },
@@ -94,7 +97,7 @@ export async function POST(request: Request) {
     }),
   ]);
 
-  return NextResponse.json({ submission: { ...submission, xpAwarded } }, { status: 201 });
+  return NextResponse.json({ submission: { ...submission, xpAwarded, coinsAwarded } }, { status: 201 });
 }
 
 export async function GET(request: Request) {
@@ -147,17 +150,18 @@ export async function GET(request: Request) {
       await prisma.activeEffect.update({ where: { id: effect.id }, data: { consumed: true } });
     }
     const xp = Math.round(sub.quest.xpReward * multiplier);
+    const coins = Math.round(sub.quest.xpReward * 0.2 * multiplier);
     const submitter = await prisma.user.findUnique({ where: { id: sub.userId } });
     if (submitter) {
       const newXp = submitter.xp + xp;
       await prisma.$transaction([
         prisma.questSubmission.update({
           where: { id: sub.id },
-          data: { vetoStatus: "APPROVED", xpAwarded: xp },
+          data: { vetoStatus: "APPROVED", xpAwarded: xp, coinsAwarded: coins },
         }),
         prisma.user.update({
           where: { id: sub.userId },
-          data: { xp: newXp, level: calculateLevel(newXp), streak: { increment: 1 } },
+          data: { xp: newXp, coins: { increment: coins }, level: calculateLevel(newXp), streak: { increment: 1 } },
         }),
       ]);
     }

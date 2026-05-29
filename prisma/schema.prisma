@@ -24,6 +24,7 @@ model User {
   avatarUrl     String?
   passwordHash  String
   xp            Int      @default(0)
+  coins         Int      @default(0)
   level         Int      @default(1)
   streak        Int      @default(0)
   lastActiveAt  DateTime @default(now())
@@ -47,6 +48,7 @@ model User {
   albums          Album[]
 
   @@index([xp(sort: Desc)])
+  @@index([coins(sort: Desc)])
   @@index([email])
 }
 
@@ -245,6 +247,7 @@ model QuestSubmission {
   approveCount  Int          @default(0)
   rejectCount   Int          @default(0)
   xpAwarded     Int          @default(0)
+  coinsAwarded  Int          @default(0)
   userId        String
   questId       String
   createdAt     DateTime     @default(now())
@@ -423,7 +426,7 @@ model ShopItem {
   id          String       @id @default(cuid())
   name        String       @unique
   description String
-  price       Int                         // XP cost
+  price       Int                         // Coin cost
   itemType    ShopItemType
   /// For TITLE: the display text. For BUFF/DEBUFF: effect multiplier (e.g. 0.75 = -25%)
   value       String

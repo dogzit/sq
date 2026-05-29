@@ -17,7 +17,7 @@ export async function GET(request: Request) {
         user: {
           select: {
             id: true, username: true, displayName: true,
-            avatarUrl: true, xp: true, level: true, streak: true,
+            avatarUrl: true, xp: true, coins: true, level: true, streak: true,
           },
         },
       },
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   const users = await prisma.user.findMany({
     select: {
       id: true, username: true, displayName: true,
-      avatarUrl: true, xp: true, level: true, streak: true,
+      avatarUrl: true, xp: true, coins: true, level: true, streak: true,
     },
     orderBy: { xp: "desc" },
     take: 50,

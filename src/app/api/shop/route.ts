@@ -16,7 +16,7 @@ export async function GET() {
     include: { item: true },
   });
 
-  return NextResponse.json({ items, purchased, userXp: user.xp });
+  return NextResponse.json({ items, purchased, userCoins: user.coins });
 }
 
 export async function POST(request: Request) {
@@ -28,14 +28,14 @@ export async function POST(request: Request) {
   const item = await prisma.shopItem.findUnique({ where: { id: shopItemId } });
   if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
-  if (user.xp < item.price) {
-    return NextResponse.json({ error: "Not enough XP" }, { status: 400 });
+  if (user.coins < item.price) {
+    return NextResponse.json({ error: "Coin хүрэхгүй байна" }, { status: 400 });
   }
 
-  // Deduct XP and create purchase
+  // Deduct coins and create purchase
   await prisma.user.update({
     where: { id: user.id },
-    data: { xp: { decrement: item.price } },
+    data: { coins: { decrement: item.price } },
   });
 
   const purchase = await prisma.userShopItem.create({
