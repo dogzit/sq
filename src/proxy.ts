@@ -19,8 +19,25 @@ const publicPaths = [
   "/api/auth/reset-password",
 ];
 
+// Static file extensions that should never go through proxy
+const staticExtensions = /\.(png|jpg|jpeg|gif|svg|ico|webp|js|css|woff|woff2|ttf|json|xml|txt|webmanifest)$/i;
+
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Skip static files entirely
+  if (staticExtensions.test(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Skip known static directories
+  if (
+    pathname.startsWith("/icons") ||
+    pathname.startsWith("/screenshots") ||
+    pathname.startsWith("/_next")
+  ) {
+    return NextResponse.next();
+  }
 
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
@@ -50,5 +67,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons|screenshots|manifest\\.json|sw\\.js|apple-touch-icon\\.png|workbox-).*)"],
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
