@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import TopBar from "@/components/TopBar";
-import { AnimatedList, AnimatedItem, FadeIn } from "@/components/AnimatedList";
+import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
+import { useUser } from "@/lib/swr";
 import { toast } from "sonner";
 
 interface Quest {
@@ -13,16 +14,21 @@ interface Quest {
   xpReward: number;
   difficulty: string;
   expiresAt: string;
+  lobbyId: string | null;
 }
 
 interface Submission {
   id: string;
   photoUrl: string;
   caption: string | null;
-  verified: boolean;
+  vetoStatus: string;
   xpAwarded: number;
+  approveCount: number;
+  rejectCount: number;
   createdAt: string;
-  user: { id: string; username: string; displayName: string };
+  user: { id: string; username: string; displayName: string; avatarUrl: string | null };
+  votes: { verdict: string; voterId: string }[];
+  _count: { votes: number };
 }
 
 export default function QuestDetailPage() {
@@ -32,10 +38,18 @@ export default function QuestDetailPage() {
 
   const [quest, setQuest] = useState<Quest | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [mySubmission, setMySubmission] = useState<Submission | null>(null);
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
+  const [votingId, setVotingId] = useState<string | null>(null);
+  const { user: currentUser } = useUser();
+  const currentUserId = currentUser?.id || null;
+
+  const loadSubmissions = useCallback(() => {
+    fetch(`/api/submissions?questId=${questId}`)
+      .then((r) => r.json())
+      .then((d) => setSubmissions(d.submissions || []));
+  }, [questId]);
 
   useEffect(() => {
     fetch(`/api/quests`)
@@ -45,10 +59,10 @@ export default function QuestDetailPage() {
         if (q) setQuest(q);
       });
 
-    fetch(`/api/submissions?questId=${questId}`)
-      .then((r) => r.json())
-      .then((d) => setSubmissions(d.submissions || []));
-  }, [questId]);
+    loadSubmissions();
+  }, [questId, loadSubmissions]);
+
+  const mySubmission = submissions.find((s) => s.user.id === currentUserId);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -69,18 +83,43 @@ export default function QuestDetailPage() {
       });
       const data = await res.json();
       if (data.submission) {
-        setMySubmission(data.submission);
         setPreview(null);
         setCaption("");
-        toast.success(`Quest complete! +${data.submission.xpAwarded} XP`);
-        const subRes = await fetch(`/api/submissions?questId=${questId}`);
-        const subData = await subRes.json();
-        setSubmissions(subData.submissions || []);
+        if (data.pending) {
+          toast.success("Илгээлээ! Lobby гишүүд vote хийхийг хүлээж байна.");
+        } else {
+          toast.success(`Quest complete! +${data.submission.xpAwarded} XP`);
+        }
+        loadSubmissions();
+      } else {
+        toast.error(data.error || "Failed");
       }
     } catch {
       toast.error("Upload failed");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleVote(submissionId: string, verdict: "APPROVE" | "REJECT") {
+    setVotingId(submissionId);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verdict }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Vote failed");
+        return;
+      }
+      toast.success(verdict === "APPROVE" ? "Approved!" : "Rejected");
+      loadSubmissions();
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setVotingId(null);
     }
   }
 
@@ -96,7 +135,7 @@ export default function QuestDetailPage() {
     <>
       <TopBar title="Quest" showBack />
 
-      <AnimatedList className="px-4 py-4 space-y-4 max-w-2xl mx-auto">
+      <AnimatedList className="px-4 py-4 space-y-4 max-w-2xl mx-auto pb-24">
         <AnimatedItem>
           <div className="game-card p-5 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-neon-purple/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
@@ -105,9 +144,9 @@ export default function QuestDetailPage() {
             <div className="flex items-center gap-2 relative">
               <span className="pill bg-neon-gold/10 text-neon-gold font-mono">⚡ {quest.xpReward}</span>
               <span className="pill bg-secondary text-muted-foreground">{quest.difficulty}</span>
-              <span className="pill bg-secondary text-muted-foreground">
-                {new Date(quest.expiresAt).toLocaleTimeString()}
-              </span>
+              {quest.lobbyId && (
+                <span className="pill bg-neon-purple/10 text-neon-purple">Lobby Quest</span>
+              )}
             </div>
           </div>
         </AnimatedItem>
@@ -149,10 +188,28 @@ export default function QuestDetailPage() {
 
         {mySubmission && (
           <AnimatedItem>
-            <div className="game-card p-4 ring-1 ring-neon-green/30 glow-green">
+            <div className={`game-card p-4 ring-1 ${
+              mySubmission.vetoStatus === "APPROVED" ? "ring-neon-green/30 glow-green" :
+              mySubmission.vetoStatus === "REJECTED" ? "ring-destructive/30" :
+              "ring-neon-gold/30"
+            }`}>
               <div className="flex items-center gap-2">
-                <span className="text-neon-green font-semibold">Quest Complete!</span>
-                <span className="pill bg-neon-gold/10 text-neon-gold font-mono">+{mySubmission.xpAwarded} XP</span>
+                {mySubmission.vetoStatus === "APPROVED" && (
+                  <>
+                    <span className="text-neon-green font-semibold">Quest Complete!</span>
+                    <span className="pill bg-neon-gold/10 text-neon-gold font-mono">+{mySubmission.xpAwarded} XP</span>
+                  </>
+                )}
+                {mySubmission.vetoStatus === "PENDING" && (
+                  <>
+                    <span className="text-neon-gold font-semibold">Vote хүлээж байна...</span>
+                    <span className="pill bg-neon-green/10 text-neon-green">{mySubmission.approveCount}</span>
+                    <span className="pill bg-destructive/10 text-destructive">{mySubmission.rejectCount}</span>
+                  </>
+                )}
+                {mySubmission.vetoStatus === "REJECTED" && (
+                  <span className="text-destructive font-semibold">Rejected</span>
+                )}
               </div>
             </div>
           </AnimatedItem>
@@ -164,23 +221,77 @@ export default function QuestDetailPage() {
               Submissions ({submissions.length})
             </h3>
             <div className="space-y-3">
-              {submissions.map((sub) => (
-                <div key={sub.id} className="game-card p-3.5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-neon-purple/15 flex items-center justify-center text-[10px] font-bold text-neon-purple">
-                      {sub.user.displayName[0]}
+              {submissions.map((sub) => {
+                const isMine = sub.user.id === currentUserId;
+                const myVote = sub.votes.find((v) => v.voterId === currentUserId);
+                const canVote = !isMine && sub.vetoStatus === "PENDING" && !myVote;
+
+                return (
+                  <div key={sub.id} className="game-card p-3.5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 rounded-full bg-neon-purple/15 flex items-center justify-center text-[10px] font-bold text-neon-purple">
+                        {sub.user.displayName[0]}
+                      </div>
+                      <span className="text-sm font-medium">{sub.user.displayName}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(sub.createdAt).toLocaleTimeString()}
+                      </span>
+                      {/* Status badge */}
+                      {sub.vetoStatus === "PENDING" && (
+                        <span className="pill bg-neon-gold/10 text-neon-gold ml-auto">Pending</span>
+                      )}
+                      {sub.vetoStatus === "APPROVED" && (
+                        <span className="pill bg-neon-green/10 text-neon-green ml-auto">Approved</span>
+                      )}
+                      {sub.vetoStatus === "REJECTED" && (
+                        <span className="pill bg-destructive/10 text-destructive ml-auto">Rejected</span>
+                      )}
                     </div>
-                    <span className="text-sm font-medium">{sub.user.displayName}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(sub.createdAt).toLocaleTimeString()}
-                    </span>
+                    <img src={sub.photoUrl} alt="" className="w-full rounded-xl" />
+                    {sub.caption && (
+                      <p className="text-sm text-muted-foreground mt-2">{sub.caption}</p>
+                    )}
+
+                    {/* Vote counts */}
+                    {sub.vetoStatus === "PENDING" && (
+                      <div className="flex items-center gap-3 mt-3">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="text-neon-green font-mono">{sub.approveCount}</span> approve
+                          <span className="mx-1">·</span>
+                          <span className="text-destructive font-mono">{sub.rejectCount}</span> reject
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Vote buttons */}
+                    {canVote && (
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => handleVote(sub.id, "APPROVE")}
+                          disabled={votingId === sub.id}
+                          className="flex-1 py-2.5 rounded-xl bg-neon-green/10 text-neon-green text-sm font-semibold hover:bg-neon-green/20 transition-colors"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleVote(sub.id, "REJECT")}
+                          disabled={votingId === sub.id}
+                          className="flex-1 py-2.5 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Already voted indicator */}
+                    {myVote && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        You voted: <span className={myVote.verdict === "APPROVE" ? "text-neon-green" : "text-destructive"}>{myVote.verdict === "APPROVE" ? "Approve" : "Reject"}</span>
+                      </div>
+                    )}
                   </div>
-                  <img src={sub.photoUrl} alt="" className="w-full rounded-xl" />
-                  {sub.caption && (
-                    <p className="text-sm text-muted-foreground mt-2">{sub.caption}</p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </AnimatedItem>
         )}

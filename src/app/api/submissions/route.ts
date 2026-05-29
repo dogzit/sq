@@ -31,7 +31,25 @@ export async function POST(request: Request) {
   // Upload to imgbb
   const { url } = await uploadToImgbb(photo);
 
-  // Calculate XP with effects
+  const isLobbyQuest = !!quest.lobbyId;
+
+  if (isLobbyQuest) {
+    // Lobby quest: PENDING — lobby members vote, 50%+ approve = XP
+    const vetoDeadline = new Date(Date.now() + 60 * 60 * 1000); // 1 hour to vote
+    const submission = await prisma.questSubmission.create({
+      data: {
+        photoUrl: url,
+        caption,
+        vetoStatus: "PENDING",
+        vetoDeadline,
+        userId: user.id,
+        questId,
+      },
+    });
+    return NextResponse.json({ submission, pending: true }, { status: 201 });
+  }
+
+  // Global quest: auto-approve with XP
   let multiplier = 1.0;
 
   const effects = await prisma.activeEffect.findMany({
@@ -42,26 +60,9 @@ export async function POST(request: Request) {
     await prisma.activeEffect.update({ where: { id: effect.id }, data: { consumed: true } });
   }
 
-  // Character class bonus
-  if (quest.lobbyId) {
-    const member = await prisma.lobbyMember.findUnique({
-      where: { userId_lobbyId: { userId: user.id, lobbyId: quest.lobbyId } },
-    });
-    if (member && quest.templateId) {
-      const template = await prisma.questTemplate.findUnique({
-        where: { id: quest.templateId },
-        include: { category: true },
-      });
-      if (template?.category?.bonusClass === member.characterClass) {
-        multiplier *= 1.25;
-      }
-    }
-  }
-
   const xpAwarded = Math.round(quest.xpReward * multiplier);
   const newXp = user.xp + xpAwarded;
 
-  // Create submission + award XP in one transaction
   const [submission] = await prisma.$transaction([
     prisma.questSubmission.create({
       data: {
@@ -81,16 +82,6 @@ export async function POST(request: Request) {
         streak: { increment: 1 },
       },
     }),
-    // Update lobby XP if in a lobby
-    ...(quest.lobbyId
-      ? [
-          prisma.lobbyMember.updateMany({
-            where: { userId: user.id, lobbyId: quest.lobbyId },
-            data: { xpInLobby: { increment: xpAwarded } },
-          }),
-        ]
-      : []),
-    // Grant 1 hour map visibility
     prisma.userLocation.upsert({
       where: { userId: user.id },
       update: { visibleUntil: new Date(Date.now() + 60 * 60 * 1000) },

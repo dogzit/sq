@@ -50,20 +50,24 @@ export async function POST(
   });
 
   // Check if we should resolve the vote
-  // Resolve when: total votes >= lobby members - 1 (submitter excluded), or deadline passed
+  // Resolve when 50%+ of eligible voters (lobby members - submitter) have voted
   const totalVotes = updated.approveCount + updated.rejectCount;
 
-  let lobbyMemberCount = 0;
+  let eligibleVoters = 1;
   if (submission.quest.lobbyId) {
-    lobbyMemberCount = await prisma.lobbyMember.count({
+    const lobbyMemberCount = await prisma.lobbyMember.count({
       where: { lobbyId: submission.quest.lobbyId },
     });
+    eligibleVoters = Math.max(lobbyMemberCount - 1, 1); // exclude submitter
   }
 
-  const shouldResolve = totalVotes >= Math.max(lobbyMemberCount - 1, 1);
+  // Need 50%+ of eligible voters to have voted
+  const majorityThreshold = Math.ceil(eligibleVoters / 2);
+  const shouldResolve = totalVotes >= majorityThreshold;
 
   if (shouldResolve) {
-    const approved = updated.approveCount > updated.rejectCount;
+    // 50%+ of votes must be APPROVE
+    const approved = updated.approveCount >= Math.ceil(totalVotes / 2);
     const vetoStatus = approved ? "APPROVED" : "REJECTED";
 
     await prisma.questSubmission.update({
