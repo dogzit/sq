@@ -24,6 +24,7 @@ export default function AdminPage() {
   const [creatingShop, setCreatingShop] = useState(false);
   const [creatingQuest, setCreatingQuest] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; name: string } | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const loadData = useCallback(() => {
     fetch("/api/admin")
@@ -116,6 +117,24 @@ export default function AdminPage() {
       loadData();
     } catch {
       toast.error("Network error");
+    }
+  }
+
+  async function handleGenerateQuests() {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/cron/daily-quests", { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) {
+        toast.error(d.error || "Failed");
+        return;
+      }
+      toast.success(`${d.generated} quest үүсгэлээ (${d.lobbies} lobby + global)`);
+      loadData();
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -294,12 +313,23 @@ export default function AdminPage() {
 
           {tab === "quests" && (
             <div className="space-y-2">
-              <button
-                onClick={() => setCreatingQuest(true)}
-                className="w-full game-card p-4 text-center border-2 border-dashed border-border hover:border-neon-purple/40 transition-all group"
-              >
-                <span className="text-sm font-medium text-muted-foreground group-hover:text-neon-purple transition-colors">+ Шинэ quest нэмэх</span>
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCreatingQuest(true)}
+                  className="flex-1 game-card p-4 text-center border-2 border-dashed border-border hover:border-neon-purple/40 transition-all group"
+                >
+                  <span className="text-sm font-medium text-muted-foreground group-hover:text-neon-purple transition-colors">+ Шинэ quest</span>
+                </button>
+                <button
+                  onClick={handleGenerateQuests}
+                  disabled={generating}
+                  className="flex-1 game-card p-4 text-center border-2 border-dashed border-neon-gold/30 hover:border-neon-gold/60 transition-all group"
+                >
+                  <span className="text-sm font-medium text-muted-foreground group-hover:text-neon-gold transition-colors">
+                    {generating ? "Үүсгэж байна..." : "Auto Generate"}
+                  </span>
+                </button>
+              </div>
               {data.activeQuests.length === 0 ? (
                 <div className="game-card p-8 text-center text-sm text-muted-foreground">No active quests</div>
               ) : (

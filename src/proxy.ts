@@ -17,6 +17,7 @@ const publicPaths = [
   "/api/auth/otp",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/cron/",
 ];
 
 // Static file extensions that should never go through proxy
