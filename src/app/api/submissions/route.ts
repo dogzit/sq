@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { uploadToImgbb } from "@/lib/imgur";
 import { submissionSchema } from "@/lib/validations";
+import { calculateLevel } from "@/lib/utils";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -30,21 +31,79 @@ export async function POST(request: Request) {
   // Upload to imgbb
   const { url } = await uploadToImgbb(photo);
 
-  // Veto deadline = 1 hour from now
-  const vetoDeadline = new Date(Date.now() + 60 * 60 * 1000);
+  // Calculate XP with effects
+  let multiplier = 1.0;
 
-  const submission = await prisma.questSubmission.create({
-    data: {
-      photoUrl: url,
-      caption,
-      vetoStatus: "PENDING",
-      vetoDeadline,
-      userId: user.id,
-      questId,
-    },
+  const effects = await prisma.activeEffect.findMany({
+    where: { targetId: user.id, consumed: false, expiresAt: { gt: new Date() } },
   });
+  for (const effect of effects) {
+    multiplier *= effect.multiplier;
+    await prisma.activeEffect.update({ where: { id: effect.id }, data: { consumed: true } });
+  }
 
-  return NextResponse.json({ submission }, { status: 201 });
+  // Character class bonus
+  if (quest.lobbyId) {
+    const member = await prisma.lobbyMember.findUnique({
+      where: { userId_lobbyId: { userId: user.id, lobbyId: quest.lobbyId } },
+    });
+    if (member && quest.templateId) {
+      const template = await prisma.questTemplate.findUnique({
+        where: { id: quest.templateId },
+        include: { category: true },
+      });
+      if (template?.category?.bonusClass === member.characterClass) {
+        multiplier *= 1.25;
+      }
+    }
+  }
+
+  const xpAwarded = Math.round(quest.xpReward * multiplier);
+  const newXp = user.xp + xpAwarded;
+
+  // Create submission + award XP in one transaction
+  const [submission] = await prisma.$transaction([
+    prisma.questSubmission.create({
+      data: {
+        photoUrl: url,
+        caption,
+        vetoStatus: "APPROVED",
+        xpAwarded,
+        userId: user.id,
+        questId,
+      },
+    }),
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        xp: newXp,
+        level: calculateLevel(newXp),
+        streak: { increment: 1 },
+      },
+    }),
+    // Update lobby XP if in a lobby
+    ...(quest.lobbyId
+      ? [
+          prisma.lobbyMember.updateMany({
+            where: { userId: user.id, lobbyId: quest.lobbyId },
+            data: { xpInLobby: { increment: xpAwarded } },
+          }),
+        ]
+      : []),
+    // Grant 1 hour map visibility
+    prisma.userLocation.upsert({
+      where: { userId: user.id },
+      update: { visibleUntil: new Date(Date.now() + 60 * 60 * 1000) },
+      create: {
+        userId: user.id,
+        latitude: 0,
+        longitude: 0,
+        visibleUntil: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    }),
+  ]);
+
+  return NextResponse.json({ submission: { ...submission, xpAwarded } }, { status: 201 });
 }
 
 export async function GET(request: Request) {
