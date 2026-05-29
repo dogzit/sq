@@ -84,6 +84,14 @@ const themeScript = `
 })();
 `;
 
+const swScript = `
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' });
+  });
+}
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -99,6 +107,7 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script dangerouslySetInnerHTML={{ __html: swScript }} />
       </head>
       <body className="min-h-dvh flex flex-col overscroll-none">
         <ThemeProvider>

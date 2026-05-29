@@ -125,5 +125,6 @@
   "handle_links": "preferred",
   "launch_handler": {
     "client_mode": "navigate-existing"
-  }
+  },
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7"
 }
