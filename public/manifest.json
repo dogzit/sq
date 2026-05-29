@@ -17,9 +17,13 @@
   "orientation": "portrait",
   "lang": "en",
   "dir": "ltr",
-  "categories": ["games", "social", "entertainment", "lifestyle"],
+  "categories": [
+    "games",
+    "social",
+    "entertainment",
+    "lifestyle"
+  ],
   "prefer_related_applications": false,
-
   "icons": [
     {
       "src": "/icons/icon-72.png",
@@ -88,7 +92,6 @@
       "purpose": "any"
     }
   ],
-
   "screenshots": [
     {
       "src": "/screenshots/narrow.png",
@@ -105,61 +108,81 @@
       "label": "SideQuest desktop experience"
     }
   ],
-
   "shortcuts": [
     {
       "name": "Daily Quests",
       "short_name": "Quests",
       "description": "View today's active quests",
       "url": "/quests",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "My Party",
       "short_name": "Party",
       "description": "View your lobbies",
       "url": "/lobbies",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Friend Map",
       "short_name": "Map",
       "description": "See friends on the map",
       "url": "/map",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
-
   "related_applications": [
     {
       "platform": "webapp",
       "url": "https://zugazuni.vercel.app/manifest.json"
     }
   ],
-
   "scope_extensions": [
-    { "origin": "https://zugazuni.vercel.app" },
-    { "origin": "https://*.vercel.app" }
+    {
+      "origin": "https://zugazuni.vercel.app"
+    },
+    {
+      "origin": "https://*.vercel.app"
+    }
   ],
-
   "file_handlers": [
     {
       "action": "/quests",
       "accept": {
-        "image/png": [".png"],
-        "image/jpeg": [".jpg", ".jpeg"],
-        "image/webp": [".webp"]
+        "image/png": [
+          ".png"
+        ],
+        "image/jpeg": [
+          ".jpg",
+          ".jpeg"
+        ],
+        "image/webp": [
+          ".webp"
+        ]
       }
     }
   ],
-
   "protocol_handlers": [
     {
       "protocol": "web+sidequest",
       "url": "/quests?id=%s"
     }
   ],
-
   "share_target": {
     "action": "/quests",
     "method": "POST",
@@ -171,12 +194,15 @@
       "files": [
         {
           "name": "photos",
-          "accept": ["image/png", "image/jpeg", "image/webp"]
+          "accept": [
+            "image/png",
+            "image/jpeg",
+            "image/webp"
+          ]
         }
       ]
     }
   },
-
   "widgets": [
     {
       "name": "SideQuest Daily",
@@ -191,27 +217,25 @@
         }
       ],
       "icons": [
-        { "src": "/icons/icon-96.png", "sizes": "96x96" }
+        {
+          "src": "/icons/icon-96.png",
+          "sizes": "96x96"
+        }
       ]
     }
   ],
-
   "edge_side_panel": {
     "preferred_width": 400
   },
-
   "handle_links": "preferred",
-
   "launch_handler": {
     "client_mode": "navigate-existing"
   },
-
   "serviceworker": {
     "src": "/sw.js",
     "scope": "/",
     "type": "classic",
     "update_via_cache": "none"
   },
-
   "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7"
 }
