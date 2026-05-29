@@ -224,7 +224,7 @@ export default function QuestDetailPage() {
               {submissions.map((sub) => {
                 const isMine = sub.user.id === currentUserId;
                 const myVote = sub.votes.find((v) => v.voterId === currentUserId);
-                const canVote = !isMine && sub.vetoStatus === "PENDING" && !myVote;
+                const canVote = !isMine && sub.vetoStatus === "PENDING";
 
                 return (
                   <div key={sub.id} className="game-card p-3.5">
@@ -263,30 +263,31 @@ export default function QuestDetailPage() {
                       </div>
                     )}
 
-                    {/* Vote buttons */}
+                    {/* Vote buttons — can change vote */}
                     {canVote && (
                       <div className="flex gap-2 mt-3">
                         <button
                           onClick={() => handleVote(sub.id, "APPROVE")}
-                          disabled={votingId === sub.id}
-                          className="flex-1 py-2.5 rounded-xl bg-neon-green/10 text-neon-green text-sm font-semibold hover:bg-neon-green/20 transition-colors"
+                          disabled={votingId === sub.id || myVote?.verdict === "APPROVE"}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                            myVote?.verdict === "APPROVE"
+                              ? "bg-neon-green/25 text-neon-green ring-1 ring-neon-green/40"
+                              : "bg-neon-green/10 text-neon-green hover:bg-neon-green/20"
+                          }`}
                         >
-                          Approve
+                          {myVote?.verdict === "APPROVE" ? "Approved" : "Approve"}
                         </button>
                         <button
                           onClick={() => handleVote(sub.id, "REJECT")}
-                          disabled={votingId === sub.id}
-                          className="flex-1 py-2.5 rounded-xl bg-destructive/10 text-destructive text-sm font-semibold hover:bg-destructive/20 transition-colors"
+                          disabled={votingId === sub.id || myVote?.verdict === "REJECT"}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                            myVote?.verdict === "REJECT"
+                              ? "bg-destructive/25 text-destructive ring-1 ring-destructive/40"
+                              : "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                          }`}
                         >
-                          Reject
+                          {myVote?.verdict === "REJECT" ? "Rejected" : "Reject"}
                         </button>
-                      </div>
-                    )}
-
-                    {/* Already voted indicator */}
-                    {myVote && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        You voted: <span className={myVote.verdict === "APPROVE" ? "text-neon-green" : "text-destructive"}>{myVote.verdict === "APPROVE" ? "Approve" : "Reject"}</span>
                       </div>
                     )}
                   </div>

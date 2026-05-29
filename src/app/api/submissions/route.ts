@@ -104,6 +104,42 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const questId = searchParams.get("questId");
 
+  // Auto-approve expired PENDING submissions (deadline passed, nobody voted enough)
+  const expiredPending = await prisma.questSubmission.findMany({
+    where: {
+      vetoStatus: "PENDING",
+      vetoDeadline: { lt: new Date() },
+      ...(questId ? { questId } : {}),
+    },
+    include: { quest: true },
+  });
+
+  for (const sub of expiredPending) {
+    let multiplier = 1.0;
+    const effects = await prisma.activeEffect.findMany({
+      where: { targetId: sub.userId, consumed: false, expiresAt: { gt: new Date() } },
+    });
+    for (const effect of effects) {
+      multiplier *= effect.multiplier;
+      await prisma.activeEffect.update({ where: { id: effect.id }, data: { consumed: true } });
+    }
+    const xp = Math.round(sub.quest.xpReward * multiplier);
+    const submitter = await prisma.user.findUnique({ where: { id: sub.userId } });
+    if (submitter) {
+      const newXp = submitter.xp + xp;
+      await prisma.$transaction([
+        prisma.questSubmission.update({
+          where: { id: sub.id },
+          data: { vetoStatus: "APPROVED", xpAwarded: xp },
+        }),
+        prisma.user.update({
+          where: { id: sub.userId },
+          data: { xp: newXp, level: calculateLevel(newXp), streak: { increment: 1 } },
+        }),
+      ]);
+    }
+  }
+
   const submissions = await prisma.questSubmission.findMany({
     where: questId ? { questId } : { userId: user.id },
     include: {

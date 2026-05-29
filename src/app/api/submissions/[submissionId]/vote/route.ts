@@ -30,15 +30,32 @@ export async function POST(
     return NextResponse.json({ error: "Voting already closed" }, { status: 400 });
   }
 
-  // Check existing vote
+  // Check existing vote — allow changing vote
   const existingVote = await prisma.vetoVote.findUnique({
     where: { voterId_submissionId: { voterId: user.id, submissionId } },
   });
+
   if (existingVote) {
-    return NextResponse.json({ error: "Already voted" }, { status: 409 });
+    if (existingVote.verdict === verdict) {
+      return NextResponse.json({ error: "Already voted" }, { status: 409 });
+    }
+    // Change vote: update verdict and swap counts
+    await prisma.vetoVote.update({
+      where: { id: existingVote.id },
+      data: { verdict },
+    });
+    const updated = await prisma.questSubmission.update({
+      where: { id: submissionId },
+      data: {
+        approveCount: { increment: verdict === "APPROVE" ? 1 : -1 },
+        rejectCount: { increment: verdict === "REJECT" ? 1 : -1 },
+      },
+    });
+    await tryResolve(submission, updated);
+    return NextResponse.json({ success: true, changed: true, verdict });
   }
 
-  // Create vote and update counts
+  // New vote
   await prisma.vetoVote.create({
     data: { verdict, voterId: user.id, submissionId },
   });
@@ -49,8 +66,16 @@ export async function POST(
     data: { [field]: { increment: 1 } },
   });
 
-  // Check if we should resolve the vote
-  // Resolve when 50%+ of eligible voters (lobby members - submitter) have voted
+  await tryResolve(submission, updated);
+
+  return NextResponse.json({ success: true, verdict });
+}
+
+// Try to resolve submission based on vote counts
+async function tryResolve(
+  submission: { id: string; userId: string; questId: string; quest: { id: string; lobbyId: string | null; xpReward: number } },
+  updated: { approveCount: number; rejectCount: number }
+) {
   const totalVotes = updated.approveCount + updated.rejectCount;
 
   let eligibleVoters = 1;
@@ -58,110 +83,78 @@ export async function POST(
     const lobbyMemberCount = await prisma.lobbyMember.count({
       where: { lobbyId: submission.quest.lobbyId },
     });
-    eligibleVoters = Math.max(lobbyMemberCount - 1, 1); // exclude submitter
+    eligibleVoters = Math.max(lobbyMemberCount - 1, 1);
   }
 
-  // Need 50%+ of eligible voters to have voted
   const majorityThreshold = Math.ceil(eligibleVoters / 2);
-  const shouldResolve = totalVotes >= majorityThreshold;
+  if (totalVotes < majorityThreshold) return;
 
-  if (shouldResolve) {
-    // 50%+ of votes must be APPROVE
-    const approved = updated.approveCount >= Math.ceil(totalVotes / 2);
-    const vetoStatus = approved ? "APPROVED" : "REJECTED";
+  const approved = updated.approveCount > updated.rejectCount;
+  await resolveSubmission(submission, approved);
+}
 
+// Award XP and finalize submission
+async function resolveSubmission(
+  submission: { id: string; userId: string; questId: string; quest: { id: string; lobbyId: string | null; xpReward: number } },
+  approved: boolean
+) {
+  if (!approved) {
     await prisma.questSubmission.update({
-      where: { id: submissionId },
-      data: {
-        vetoStatus,
-        xpAwarded: approved ? submission.quest.xpReward : 0,
-      },
+      where: { id: submission.id },
+      data: { vetoStatus: "REJECTED", xpAwarded: 0 },
     });
+    return;
+  }
 
-    // Award XP if approved
-    if (approved) {
-      // Check for active effects (buff/debuff)
-      let multiplier = 1.0;
-      const effects = await prisma.activeEffect.findMany({
-        where: {
-          targetId: submission.userId,
-          consumed: false,
-          expiresAt: { gt: new Date() },
-        },
+  let multiplier = 1.0;
+  const effects = await prisma.activeEffect.findMany({
+    where: { targetId: submission.userId, consumed: false, expiresAt: { gt: new Date() } },
+  });
+  for (const effect of effects) {
+    multiplier *= effect.multiplier;
+    await prisma.activeEffect.update({ where: { id: effect.id }, data: { consumed: true } });
+  }
+
+  if (submission.quest.lobbyId) {
+    const member = await prisma.lobbyMember.findUnique({
+      where: { userId_lobbyId: { userId: submission.userId, lobbyId: submission.quest.lobbyId } },
+    });
+    if (member) {
+      const questTemplate = await prisma.quest.findUnique({
+        where: { id: submission.questId },
+        include: { template: { include: { category: true } } },
       });
-
-      for (const effect of effects) {
-        multiplier *= effect.multiplier;
-        await prisma.activeEffect.update({
-          where: { id: effect.id },
-          data: { consumed: true },
-        });
+      if (questTemplate?.template?.category?.bonusClass === member.characterClass) {
+        multiplier *= 1.25;
       }
-
-      // Character class bonus check
-      if (submission.quest.lobbyId) {
-        const member = await prisma.lobbyMember.findUnique({
-          where: {
-            userId_lobbyId: {
-              userId: submission.userId,
-              lobbyId: submission.quest.lobbyId,
-            },
-          },
-        });
-
-        if (member) {
-          const questTemplate = await prisma.quest.findUnique({
-            where: { id: submission.questId },
-            include: { template: { include: { category: true } } },
-          });
-
-          if (questTemplate?.template?.category?.bonusClass === member.characterClass) {
-            multiplier *= 1.25; // +25% class bonus
-          }
-        }
-      }
-
-      const finalXp = Math.round(submission.quest.xpReward * multiplier);
-
-      const submitter = await prisma.user.findUnique({ where: { id: submission.userId } });
-      if (submitter) {
-        const newXp = submitter.xp + finalXp;
-        await prisma.user.update({
-          where: { id: submission.userId },
-          data: {
-            xp: newXp,
-            level: calculateLevel(newXp),
-            streak: { increment: 1 },
-          },
-        });
-      }
-
-      // Update lobby XP
-      if (submission.quest.lobbyId) {
-        await prisma.lobbyMember.updateMany({
-          where: { userId: submission.userId, lobbyId: submission.quest.lobbyId },
-          data: { xpInLobby: { increment: finalXp } },
-        });
-      }
-
-      // Fog of War: grant 1 hour of map visibility
-      await prisma.userLocation.upsert({
-        where: { userId: submission.userId },
-        update: { visibleUntil: new Date(Date.now() + 60 * 60 * 1000) },
-        create: {
-          userId: submission.userId,
-          latitude: 0,
-          longitude: 0,
-          visibleUntil: new Date(Date.now() + 60 * 60 * 1000),
-        },
-      });
-
-      await prisma.questSubmission.update({
-        where: { id: submissionId },
-        data: { xpAwarded: finalXp },
-      });
     }
   }
 
-  return NextResponse.json({ success: true, totalVotes, verdict });
+  const finalXp = Math.round(submission.quest.xpReward * multiplier);
+  const submitter = await prisma.user.findUnique({ where: { id: submission.userId } });
+  if (!submitter) return;
+
+  const newXp = submitter.xp + finalXp;
+
+  await prisma.$transaction([
+    prisma.questSubmission.update({
+      where: { id: submission.id },
+      data: { vetoStatus: "APPROVED", xpAwarded: finalXp },
+    }),
+    prisma.user.update({
+      where: { id: submission.userId },
+      data: { xp: newXp, level: calculateLevel(newXp), streak: { increment: 1 } },
+    }),
+    ...(submission.quest.lobbyId
+      ? [prisma.lobbyMember.updateMany({
+          where: { userId: submission.userId, lobbyId: submission.quest.lobbyId },
+          data: { xpInLobby: { increment: finalXp } },
+        })]
+      : []),
+    prisma.userLocation.upsert({
+      where: { userId: submission.userId },
+      update: { visibleUntil: new Date(Date.now() + 60 * 60 * 1000) },
+      create: { userId: submission.userId, latitude: 0, longitude: 0, visibleUntil: new Date(Date.now() + 60 * 60 * 1000) },
+    }),
+  ]);
 }
