@@ -17,7 +17,6 @@ const publicPaths = [
   "/api/auth/otp",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
-  "/api/cron/",
 ];
 
 // Static file extensions that should never go through proxy
@@ -41,6 +40,11 @@ export default async function proxy(request: NextRequest) {
   }
 
   if (publicPaths.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // Vercel Cron GET requests — let through, route checks CRON_SECRET
+  if (pathname.startsWith("/api/cron/") && request.method === "GET") {
     return NextResponse.next();
   }
 
