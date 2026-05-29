@@ -6,14 +6,20 @@
   "scope": "/",
   "id": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "window-controls-overlay",
+    "tabbed",
+    "standalone",
+    "minimal-ui"
+  ],
   "background_color": "#0a0a0f",
   "theme_color": "#7C5CFF",
   "orientation": "portrait",
   "lang": "en",
   "dir": "ltr",
-  "categories": ["games", "social", "entertainment"],
+  "categories": ["games", "social", "entertainment", "lifestyle"],
   "prefer_related_applications": false,
+
   "icons": [
     {
       "src": "/icons/icon-72.png",
@@ -82,6 +88,7 @@
       "purpose": "any"
     }
   ],
+
   "screenshots": [
     {
       "src": "/screenshots/narrow.png",
@@ -98,6 +105,7 @@
       "label": "SideQuest desktop experience"
     }
   ],
+
   "shortcuts": [
     {
       "name": "Daily Quests",
@@ -121,16 +129,89 @@
       "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
     }
   ],
-  "related_applications": [],
+
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://zugazuni.vercel.app/manifest.json"
+    }
+  ],
+
+  "scope_extensions": [
+    { "origin": "https://zugazuni.vercel.app" },
+    { "origin": "https://*.vercel.app" }
+  ],
+
+  "file_handlers": [
+    {
+      "action": "/quests",
+      "accept": {
+        "image/png": [".png"],
+        "image/jpeg": [".jpg", ".jpeg"],
+        "image/webp": [".webp"]
+      }
+    }
+  ],
+
+  "protocol_handlers": [
+    {
+      "protocol": "web+sidequest",
+      "url": "/quests?id=%s"
+    }
+  ],
+
+  "share_target": {
+    "action": "/quests",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "photos",
+          "accept": ["image/png", "image/jpeg", "image/webp"]
+        }
+      ]
+    }
+  },
+
+  "widgets": [
+    {
+      "name": "SideQuest Daily",
+      "description": "See your active quests at a glance",
+      "tag": "quest-widget",
+      "ms_ac_template": "widget/quest-widget.json",
+      "screenshots": [
+        {
+          "src": "/screenshots/narrow.png",
+          "sizes": "390x844",
+          "label": "Quest widget preview"
+        }
+      ],
+      "icons": [
+        { "src": "/icons/icon-96.png", "sizes": "96x96" }
+      ]
+    }
+  ],
+
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+
   "handle_links": "preferred",
+
   "launch_handler": {
     "client_mode": "navigate-existing"
   },
+
   "serviceworker": {
     "src": "/sw.js",
     "scope": "/",
     "type": "classic",
     "update_via_cache": "none"
   },
+
   "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7"
 }
