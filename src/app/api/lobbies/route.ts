@@ -19,7 +19,7 @@ export async function GET() {
           user: { select: { id: true, username: true, displayName: true, avatarUrl: true, xp: true } },
         },
       },
-      _count: { select: { quests: true, qaSessions: true } },
+      _count: { select: { quests: true } },
     },
     orderBy: { updatedAt: "desc" },
   });

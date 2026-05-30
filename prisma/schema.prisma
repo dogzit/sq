@@ -22,6 +22,7 @@ model User {
   username      String   @unique
   displayName   String
   avatarUrl     String?
+  bio           String?
   passwordHash  String
   xp            Int      @default(0)
   coins         Int      @default(0)
@@ -30,9 +31,15 @@ model User {
   lastStreakDate DateTime?
   lastActiveAt  DateTime @default(now())
   createdAt     DateTime @default(now())
-  emailVerified Boolean  @default(false)
-  isAdmin       Boolean  @default(false)
-  updatedAt     DateTime @updatedAt
+  emailVerified     Boolean   @default(false)
+  isAdmin           Boolean   @default(false)
+  birthDate         DateTime?
+  phone             String?
+  interests         String[]
+  isProfileComplete Boolean   @default(false)
+  isSafeMode        Boolean   @default(false)
+  safeModeExpires   DateTime?
+  updatedAt         DateTime  @updatedAt
 
   // ── Relations ──
   otpCodes        OtpCode[]
@@ -41,7 +48,6 @@ model User {
   submissions     QuestSubmission[]
   votes           VetoVote[]
   locations       UserLocation[]
-  qaAnswers       QAAnswer[]
   sentInvites     LobbyInvite[]     @relation("InviteSender")
   receivedInvites LobbyInvite[]     @relation("InviteReceiver")
   purchasedItems  UserShopItem[]
@@ -51,6 +57,9 @@ model User {
   checkIns        DailyCheckIn[]
   achievements    UserAchievement[]
   notifications   Notification[]
+  createdTrivia    TriviaQuestion[]   @relation("TriviaCreator")
+  reviewedTrivia   TriviaQuestion[]   @relation("TriviaReviewer")
+  triviaAnswers    UserTriviaAnswer[]
 
   @@index([xp(sort: Desc)])
   @@index([coins(sort: Desc)])
@@ -101,7 +110,6 @@ model Lobby {
   members    LobbyMember[]
   invites    LobbyInvite[]
   quests     Quest[]
-  qaSessions QASession[]
 
   @@index([code])
   @@index([ownerId])
@@ -202,8 +210,10 @@ model Quest {
   title       String
   description String
   xpReward    Int             @default(50)
+  coinReward  Int             @default(0)
   difficulty  QuestDifficulty @default(MEDIUM)
   questType   QuestType       @default(DAILY)
+  isAiGenerated Boolean       @default(false)
   status      QuestStatus     @default(ACTIVE)
   startsAt    DateTime        @default(now())
   expiresAt   DateTime
@@ -244,7 +254,8 @@ enum QuestStatus {
 
 model QuestSubmission {
   id            String       @id @default(cuid())
-  photoUrl      String
+  mediaUrl      String
+  mediaType     MediaType    @default(IMAGE)
   caption       String?
   /// Veto status — starts PENDING, resolved after vote window
   vetoStatus    VetoStatus   @default(PENDING)
@@ -292,6 +303,11 @@ enum VetoStatus {
   PENDING    // waiting for votes
   APPROVED   // 50%+ approved → XP granted
   REJECTED   // 50%+ rejected → no XP
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
 }
 
 // ── Album & Video Generation ──
@@ -357,70 +373,6 @@ model UserLocation {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  6. Q&A & MINI-GAMES
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-model QASession {
-  id           String        @id @default(cuid())
-  gameType     GameType      @default(TRIVIA)
-  status       SessionStatus @default(WAITING)
-  roundCount   Int           @default(5)
-  currentRound Int           @default(0)
-  lobbyId      String
-  startsAt     DateTime?
-  endsAt       DateTime?
-  createdAt    DateTime      @default(now())
-
-  lobby     Lobby        @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
-  questions QAQuestion[]
-
-  @@index([lobbyId])
-  @@index([status])
-}
-
-enum GameType {
-  TRIVIA
-  SPEED_TAP
-  EMOJI_GUESS
-  WORD_SCRAMBLE
-}
-
-enum SessionStatus {
-  WAITING
-  IN_PROGRESS
-  FINISHED
-}
-
-model QAQuestion {
-  id           String   @id @default(cuid())
-  question     String
-  options      String[]
-  correctIndex Int
-  timeLimit    Int      @default(15)  // seconds
-  round        Int
-  sessionId    String
-  createdAt    DateTime @default(now())
-
-  session QASession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  answers QAAnswer[]
-
-  @@index([sessionId])
-}
-
-model QAAnswer {
-  id             String   @id @default(cuid())
-  selectedIndex  Int
-  isCorrect      Boolean
-  responseTimeMs Int
-  xpEarned       Int      @default(0)
-  userId         String
-  questionId     String
-  createdAt      DateTime @default(now())
-
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  question QAQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, questionId])
-  @@index([questionId])
-}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  7. XP SHOP, TITLES, BUFFS & DEBUFFS
@@ -563,15 +515,51 @@ model Notification {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-//  11. TRIVIA BANK
+//  11. USER-CREATED TRIVIA
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-model TriviaBank {
-  id           String   @id @default(cuid())
+model TriviaQuestion {
+  id           String         @id @default(cuid())
   question     String
   options      String[]
   correctIndex Int
-  category     String   @default("general")
-  difficulty   String   @default("MEDIUM")
-  createdAt    DateTime @default(now())
+  coinReward   Int            @default(10)
+  xpReward     Int            @default(20)
+  status       TriviaStatus   @default(PENDING)
+  rejectReason String?
+  reviewedAt   DateTime?
+  reviewedById String?
+  creatorId    String
+  createdAt    DateTime       @default(now())
+
+  creator    User               @relation("TriviaCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  reviewedBy User?              @relation("TriviaReviewer", fields: [reviewedById], references: [id])
+  answers    UserTriviaAnswer[]
+
+  @@index([creatorId])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+enum TriviaStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model UserTriviaAnswer {
+  id            String   @id @default(cuid())
+  userId        String
+  questionId    String
+  selectedIndex Int
+  isCorrect     Boolean
+  coinsEarned   Int      @default(0)
+  xpEarned      Int      @default(0)
+  answeredAt    DateTime @default(now())
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question TriviaQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@index([questionId])
 }

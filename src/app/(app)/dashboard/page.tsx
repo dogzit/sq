@@ -50,8 +50,18 @@ export default function DashboardPage() {
             <div className="h-4 w-16 skeleton-shimmer rounded-lg" />
           ) : (
             <Link href="/profile" className="flex items-center gap-2 group">
-              <div className="w-7 h-7 rounded-full bg-neon-purple/15 ring-2 ring-neon-purple/30 flex items-center justify-center text-xs font-bold text-neon-purple group-hover:ring-neon-purple/60 transition-all">
-                {user?.displayName?.[0]}
+              <div className="w-7 h-7 rounded-full ring-2 ring-neon-purple/30 group-hover:ring-neon-purple/60 transition-all overflow-hidden bg-neon-purple/15 flex items-center justify-center">
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.displayName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xs font-bold text-neon-purple">
+                    {user?.displayName?.[0]}
+                  </span>
+                )}
               </div>
             </Link>
           )
@@ -143,6 +153,18 @@ export default function DashboardPage() {
               <div className="text-sm font-semibold text-foreground group-hover:text-neon-blue transition-colors">Daily Quests</div>
               <div className="text-[11px] text-muted-foreground">
                 {questsLoading ? "..." : `${quests.length} active`}
+              </div>
+            </Link>
+            <Link href="/trivia" className="game-card p-4 text-center group">
+              <div className="emoji-ring mx-auto mb-2">🧠</div>
+              <div className="text-sm font-semibold text-foreground group-hover:text-neon-purple transition-colors">Trivia</div>
+              <div className="text-[11px] text-muted-foreground">Хариулж шагнал ав</div>
+            </Link>
+            <Link href="/safe-mode" className="game-card p-4 text-center group">
+              <div className="emoji-ring mx-auto mb-2">🏕️</div>
+              <div className="text-sm font-semibold text-foreground group-hover:text-neon-green transition-colors">Camping</div>
+              <div className="text-[11px] text-muted-foreground">
+                {user?.isSafeMode ? "Идэвхтэй" : "Streak царца"}
               </div>
             </Link>
           </div>

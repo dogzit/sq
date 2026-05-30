@@ -193,75 +193,13 @@ async function main() {
   }
 
   // ──────────────────────────────────────────
-  // TRIVIA BANK
+  // TRIVIA BANK removed — replaced by user-created TriviaQuestion
   // ──────────────────────────────────────────
-  const triviaQuestions = [
-    // Ерөнхий мэдлэг
-    { question: "Дэлхийн хамгийн өндөр уул юу вэ?", options: ["K2", "Everest", "Kangchenjunga", "Lhotse"], correctIndex: 1, category: "general" },
-    { question: "Нарны аймгийн хамгийн том гараг юу вэ?", options: ["Saturn", "Jupiter", "Neptune", "Uranus"], correctIndex: 1, category: "general" },
-    { question: "Монгол улсын нийслэл юу вэ?", options: ["Дархан", "Эрдэнэт", "Улаанбаатар", "Чойбалсан"], correctIndex: 2, category: "mongolia" },
-    { question: "Усны химийн томъёо юу вэ?", options: ["CO2", "H2O", "O2", "NaCl"], correctIndex: 1, category: "general" },
-    { question: "1 км = хэдэн метр?", options: ["100", "500", "1000", "10000"], correctIndex: 2, category: "general" },
-    { question: "Дэлхийн хамгийн том далай юу вэ?", options: ["Атлантик", "Номхон", "Энэтхэг", "Хойд мөсөн"], correctIndex: 1, category: "general" },
-    { question: "Хүний биед хэдэн яс байдаг вэ?", options: ["106", "206", "306", "156"], correctIndex: 1, category: "general" },
-    { question: "Нар дэлхийгээс хэдэн гэрлийн минутын зайтай вэ?", options: ["4", "8", "12", "20"], correctIndex: 1, category: "general" },
-    { question: "Дэлхийн хамгийн урт гол юу вэ?", options: ["Амазон", "Нил", "Миссисипи", "Янцзы"], correctIndex: 1, category: "general" },
-    { question: "Хүний биеийн хэдэн хувь нь ус вэ?", options: ["40%", "50%", "60%", "70%"], correctIndex: 2, category: "general" },
-    { question: "Алмаз ямар элементээс бүтдэг вэ?", options: ["Төмөр", "Нүүрстөрөгч", "Кальци", "Цахиур"], correctIndex: 1, category: "general" },
-    { question: "Монголын хамгийн урт гол юу вэ?", options: ["Туул", "Орхон", "Сэлэнгэ", "Херлэн"], correctIndex: 3, category: "mongolia" },
-    { question: "Дэлхий дээр хэдэн тив байдаг вэ?", options: ["5", "6", "7", "8"], correctIndex: 2, category: "general" },
-    { question: "Хамгийн хурдан амьтан юу вэ?", options: ["Арслан", "Цагаан барс", "Шонхор", "Гепард"], correctIndex: 2, category: "general" },
-    { question: "Дэлхийн хүн амын хэдэн хувь нь Ази тивд амьдардаг вэ?", options: ["30%", "45%", "60%", "75%"], correctIndex: 2, category: "general" },
-    { question: "Марс гаргийн өнгө юу вэ?", options: ["Цэнхэр", "Шар", "Улаан", "Ногоон"], correctIndex: 2, category: "general" },
-    { question: "Далайн ус яагаад давстай байдаг вэ?", options: ["Загаснаас", "Голын эрдсээс", "Нарнаас", "Агаараас"], correctIndex: 1, category: "general" },
-    { question: "Египтийн Пирамидыг хэдэн жилийн өмнө барьсан бэ?", options: ["2000", "3000", "4500", "6000"], correctIndex: 2, category: "general" },
-    { question: "Дэлхий нарыг хэдэн хоногт тойрдог вэ?", options: ["360", "365", "370", "355"], correctIndex: 1, category: "general" },
-    // Технологи
-    { question: "HTML гэдэг юуны товчлол вэ?", options: ["HyperText Markup Language", "High Tech ML", "Home Tool ML", "HyperTransfer ML"], correctIndex: 0, category: "tech" },
-    { question: "JavaScript-ийг хэн зохиосон бэ?", options: ["Guido van Rossum", "James Gosling", "Brendan Eich", "Dennis Ritchie"], correctIndex: 2, category: "tech" },
-    { question: "React-ийг аль компани хөгжүүлсэн бэ?", options: ["Google", "Apple", "Facebook", "Microsoft"], correctIndex: 2, category: "tech" },
-    { question: "CSS гэдэг юуны товчлол вэ?", options: ["Computer Style Sheets", "Cascading Style Sheets", "Creative Style System", "Coded Style Sheets"], correctIndex: 1, category: "tech" },
-    { question: "Python хэлийг хэн зохиосон бэ?", options: ["Guido van Rossum", "Linus Torvalds", "Tim Berners-Lee", "James Gosling"], correctIndex: 0, category: "tech" },
-    { question: "Интернэтийг хэдэн онд зохион бүтээсэн бэ?", options: ["1969", "1975", "1983", "1991"], correctIndex: 0, category: "tech" },
-    { question: "Git-ийг хэн зохиосон бэ?", options: ["Bill Gates", "Linus Torvalds", "Steve Jobs", "Mark Zuckerberg"], correctIndex: 1, category: "tech" },
-    { question: "SQL гэдэг юуны товчлол вэ?", options: ["Structured Query Language", "Simple Question Language", "System Query Logic", "Standard Query Line"], correctIndex: 0, category: "tech" },
-    { question: "Хамгийн анхны компьютер аль нь вэ?", options: ["IBM PC", "Apple I", "ENIAC", "Commodore 64"], correctIndex: 2, category: "tech" },
-    { question: "1 байт = хэдэн бит?", options: ["4", "8", "16", "32"], correctIndex: 1, category: "tech" },
-    { question: "Linux-ийн маскот амьтан юу вэ?", options: ["Нохой", "Оцон шувуу", "Муур", "Арслан"], correctIndex: 1, category: "tech" },
-    { question: "TypeScript-ийг аль компани хөгжүүлсэн бэ?", options: ["Google", "Facebook", "Microsoft", "Amazon"], correctIndex: 2, category: "tech" },
-    { question: "HTTP гэдэг юуны товчлол вэ?", options: ["HyperText Transfer Protocol", "High Tech Transfer Protocol", "Home Transfer Program", "Hybrid Text Protocol"], correctIndex: 0, category: "tech" },
-    { question: "API гэдэг юуны товчлол вэ?", options: ["Application Programming Interface", "Advanced Protocol Integration", "Auto Program Input", "App Process Integration"], correctIndex: 0, category: "tech" },
-    { question: "GitHub-ийг аль компани худалдаж авсан бэ?", options: ["Google", "Amazon", "Microsoft", "Apple"], correctIndex: 2, category: "tech" },
-    // Монгол
-    { question: "Чингис хаан хэдэн онд төрсөн бэ?", options: ["1142", "1162", "1182", "1202"], correctIndex: 1, category: "mongolia" },
-    { question: "Монгол улсын талбай хэдэн мянган км²?", options: ["1064", "1267", "1564", "1867"], correctIndex: 2, category: "mongolia" },
-    { question: "Монголын хамгийн өндөр уул юу вэ?", options: ["Отгонтэнгэр", "Хүйтэн", "Мөнх Хайрхан", "Тавн Богд"], correctIndex: 1, category: "mongolia" },
-    { question: "Монгол бичгийг хэн зохиосон бэ?", options: ["Тататунга", "Занабазар", "Бямбын Ринчен", "Чойжинжав"], correctIndex: 0, category: "mongolia" },
-    { question: "Монголын төгрөгний валютын код юу вэ?", options: ["MON", "MGL", "MNT", "MGT"], correctIndex: 2, category: "mongolia" },
-    { question: "Монгол улсад хэдэн аймаг байдаг вэ?", options: ["18", "19", "21", "23"], correctIndex: 2, category: "mongolia" },
-    { question: "Наадмын хэдэн нэрт тоглоом байдаг вэ?", options: ["2", "3", "4", "5"], correctIndex: 1, category: "mongolia" },
-    { question: "Монголын хамгийн том нуур юу вэ?", options: ["Хөвсгөл", "Увс", "Хяргас", "Буйр"], correctIndex: 1, category: "mongolia" },
-    { question: "Монгол улс хэдэн онд тусгаар тогтносон бэ?", options: ["1911", "1921", "1924", "1945"], correctIndex: 0, category: "mongolia" },
-    { question: "Хөвсгөл нуур дэлхийд хэддүгээр том цэвэр усны нуур вэ?", options: ["2", "5", "8", "14"], correctIndex: 0, category: "mongolia" },
-    // Поп соёл
-    { question: "Harry Potter-ийн зохиогч хэн бэ?", options: ["Stephen King", "J.R.R. Tolkien", "J.K. Rowling", "George R.R. Martin"], correctIndex: 2, category: "pop_culture" },
-    { question: "Marvel-ийн Тор аль улсын домогт гардаг вэ?", options: ["Грек", "Египт", "Хойд Европ", "Япон"], correctIndex: 2, category: "pop_culture" },
-    { question: "Mario тоглоомын дүрийн мэргэжил юу вэ?", options: ["Барилгачин", "Сантехникч", "Цагдаа", "Тогооч"], correctIndex: 1, category: "pop_culture" },
-    { question: "Spotify хэдэн онд үүссэн бэ?", options: ["2004", "2006", "2008", "2010"], correctIndex: 1, category: "pop_culture" },
-    { question: "Tesla компанийг хэн үүсгэн байгуулсан бэ?", options: ["Elon Musk", "Martin Eberhard", "Jeff Bezos", "Steve Wozniak"], correctIndex: 1, category: "pop_culture" },
-  ];
-
-  // Clear and re-seed trivia
-  await prisma.triviaBank.deleteMany({});
-  for (const q of triviaQuestions) {
-    await prisma.triviaBank.create({ data: q });
-  }
 
   console.log(`Seeded ${categories.length} categories`);
   console.log(`Seeded ${templates.length} quest templates`);
   console.log(`Seeded ${shopItems.length} shop items`);
   console.log(`Seeded ${achievements.length} achievements`);
-  console.log(`Seeded ${triviaQuestions.length} trivia questions`);
 }
 
 main()

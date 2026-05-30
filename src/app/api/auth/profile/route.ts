@@ -13,7 +13,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
   }
 
-  const { displayName, username } = parsed.data;
+  const { displayName, username, bio } = parsed.data;
 
   try {
     const updated = await prisma.user.update({
@@ -21,6 +21,7 @@ export async function PUT(request: Request) {
       data: {
         ...(displayName && { displayName }),
         ...(username && { username }),
+        ...(bio !== undefined && { bio }),
       },
       select: {
         id: true,
@@ -28,6 +29,7 @@ export async function PUT(request: Request) {
         username: true,
         displayName: true,
         avatarUrl: true,
+        bio: true,
         xp: true,
         level: true,
         streak: true,

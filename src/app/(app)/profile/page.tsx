@@ -3,106 +3,104 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
-import { SkeletonProfile, SkeletonList } from "@/components/Skeleton";
-import { AnimatedList, AnimatedItem, FadeIn } from "@/components/AnimatedList";
+import { SkeletonList } from "@/components/Skeleton";
+import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { useUser, useSubmissions } from "@/lib/swr";
+import AvatarUpload from "@/components/AvatarUpload";
+import ProfileCompleteModal from "@/components/ProfileCompleteModal";
 import Link from "next/link";
-import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isLoading: userLoading, mutate } = useUser();
+  const { user, isLoading, mutate } = useUser();
   const { submissions, isLoading: subLoading } = useSubmissions();
   const [tab, setTab] = useState<"stats" | "album">("stats");
   const [showLogout, setShowLogout] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ displayName: "", username: "" });
-  const [saving, setSaving] = useState(false);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    toast.success("Амжилттай гарлаа");
     router.push("/login");
-  }
-
-  function openEdit() {
-    if (!user) return;
-    setEditForm({ displayName: user.displayName, username: user.username });
-    setShowEdit(true);
-  }
-
-  async function saveProfile() {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/auth/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editForm),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || "Хадгалж чадсангүй");
-        return;
-      }
-      toast.success("Профайл шинэчлэгдлээ!");
-      mutate();
-      setShowEdit(false);
-    } catch {
-      toast.error("Сүлжээний алдаа гарлаа");
-    } finally {
-      setSaving(false);
-    }
   }
 
   return (
     <>
       <TopBar
         showBack
-        title="Profile"
+        title="Профайл"
         rightAction={
           <button
             onClick={() => setShowLogout(true)}
-            className="text-xs px-3 py-1.5 rounded-full font-semibold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all"
+            className="text-xs px-3 py-1.5 rounded-full font-semibold bg-destructive/10 text-destructive"
           >
-            Logout
+            Гарах
           </button>
         }
       />
 
-      <AnimatedList className="px-4 py-4 space-y-4 max-w-2xl mx-auto">
+      <AnimatedList className="max-w-sm mx-auto px-4 py-4 space-y-3">
+
+        {/* ── 3:4 Profile Card ── */}
         <AnimatedItem>
-          {userLoading ? (
-            <SkeletonProfile />
+          {isLoading ? (
+            <div className="aspect-[3/4] rounded-2xl bg-secondary animate-pulse" />
           ) : (
-            <div className="game-card p-6 text-center relative overflow-hidden">
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-48 bg-neon-purple/8 rounded-full blur-3xl -translate-y-1/2" />
-              <div className="relative">
-                <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-neon-purple/20 to-neon-blue/20 ring-2 ring-neon-purple/30 flex items-center justify-center text-2xl font-bold text-neon-purple mb-4">
-                  {user?.displayName?.[0]}
-                </div>
-                <h2 className="font-display text-xl font-bold">{user?.displayName}</h2>
-                <p className="text-sm text-muted-foreground">@{user?.username}</p>
+            <div className="aspect-[3/4] relative rounded-2xl overflow-hidden border border-border">
+              {/* Blurred avatar background */}
+              <div className="absolute inset-0">
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="" className="w-full h-full object-cover scale-110 blur-2xl opacity-40" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-neon-purple/20 to-neon-blue/10" />
+                )}
+              </div>
 
-                <button
-                  onClick={openEdit}
-                  className="mt-3 text-xs px-4 py-1.5 rounded-full font-medium bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all"
-                >
-                  Edit Profile
-                </button>
+              {/* Edit button */}
+              <button
+                onClick={() => setShowEdit(true)}
+                className="absolute top-3 right-3 z-10 text-xs px-3 py-1.5 rounded-full bg-black/40 text-white backdrop-blur-sm border border-white/10 hover:bg-black/60 transition-all"
+              >
+                ✏️ Засах
+              </button>
 
-                <div className="grid grid-cols-3 gap-4 mt-6">
+              {/* Content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-6 px-4">
+                {/* Gradient fade */}
+                <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 to-transparent" />
+
+                <div className="relative z-10 flex flex-col items-center text-center gap-2 w-full">
+                  <AvatarUpload
+                    avatarUrl={user?.avatarUrl}
+                    displayName={user?.displayName}
+                    size={80}
+                    onUpload={(url) =>
+                      mutate(
+                        (curr: any) => ({ ...curr, user: { ...curr?.user, avatarUrl: url } }),
+                        { revalidate: true }
+                      )
+                    }
+                  />
                   <div>
-                    <div className="font-mono text-xl font-bold text-neon-gold text-glow-gold">{user?.xp}</div>
-                    <div className="text-[11px] text-muted-foreground">Total XP</div>
+                    <h2 className="text-xl font-bold text-white leading-tight">{user?.displayName}</h2>
+                    <p className="text-sm text-white/60">@{user?.username}</p>
+                    {user?.bio && (
+                      <p className="mt-1.5 text-sm text-white/80 max-w-[220px] mx-auto leading-snug">{user.bio}</p>
+                    )}
                   </div>
-                  <div>
-                    <div className="font-mono text-xl font-bold text-neon-purple">{user?.level}</div>
-                    <div className="text-[11px] text-muted-foreground">Level</div>
-                  </div>
-                  <div>
-                    <div className="font-mono text-xl font-bold text-neon-orange">{user?.streak}</div>
-                    <div className="text-[11px] text-muted-foreground">Streak</div>
+
+                  {/* Stats row */}
+                  <div className="flex gap-4 mt-1">
+                    {[
+                      { val: user?.xp, label: "XP", color: "text-neon-gold" },
+                      { val: user?.level, label: "Level", color: "text-neon-purple" },
+                      { val: user?.streak, label: "Streak", color: "text-neon-orange" },
+                    ].map(({ val, label, color }) => (
+                      <div key={label} className="text-center">
+                        <div className={`font-mono text-lg font-bold ${color}`}>{val}</div>
+                        <div className="text-[10px] text-white/50">{label}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -110,44 +108,35 @@ export default function ProfilePage() {
           )}
         </AnimatedItem>
 
+        {/* ── Quick links ── */}
         <AnimatedItem>
-          <div className="space-y-2">
-            <Link href="/leaderboard" className="game-card p-4 flex items-center justify-between group block">
-              <div className="flex items-center gap-3">
-                <div className="emoji-ring">🏆</div>
-                <div>
-                  <div className="text-sm font-semibold group-hover:text-neon-purple transition-colors">Leaderboard</div>
-                  <div className="text-xs text-muted-foreground">See rankings</div>
-                </div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground"><path d="m9 18 6-6-6-6"/></svg>
-            </Link>
-            <Link href="/achievements" className="game-card p-4 flex items-center justify-between group block">
-              <div className="flex items-center gap-3">
-                <div className="emoji-ring">🎖️</div>
-                <div>
-                  <div className="text-sm font-semibold group-hover:text-neon-purple transition-colors">Achievements</div>
-                  <div className="text-xs text-muted-foreground">Badges & rewards</div>
-                </div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground"><path d="m9 18 6-6-6-6"/></svg>
-            </Link>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { href: "/leaderboard", emoji: "🏆", label: "Leaderboard" },
+              { href: "/achievements", emoji: "🎖️", label: "Achievements" },
+              { href: "/trivia/mine", emoji: "🧠", label: "Миний Trivia" },
+              { href: "/safe-mode", emoji: "🏕️", label: "Camping Pass" },
+
+            ].map(({ href, emoji, label }) => (
+              <Link key={href} href={href} className="game-card p-3 flex items-center gap-2">
+                <span className="text-lg">{emoji}</span>
+                <span className="text-sm font-medium">{label}</span>
+              </Link>
+            ))}
           </div>
         </AnimatedItem>
 
+        {/* ── Tabs ── */}
         <AnimatedItem>
           <div className="flex border-b border-border">
             {(["stats", "album"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`flex-1 py-3 text-xs font-medium tracking-wide transition-all ${
-                  tab === t
-                    ? "text-neon-purple border-b-2 border-neon-purple"
-                    : "text-muted-foreground"
-                }`}
+                className={`flex-1 py-2.5 text-xs font-medium tracking-wide transition-all ${tab === t ? "text-neon-purple border-b-2 border-neon-purple" : "text-muted-foreground"
+                  }`}
               >
-                {t === "stats" ? "Stats" : `Album (${subLoading ? "..." : submissions.length})`}
+                {t === "stats" ? "Stats" : `Album (${subLoading ? "…" : submissions.length})`}
               </button>
             ))}
           </div>
@@ -157,14 +146,14 @@ export default function ProfilePage() {
           {tab === "stats" && (
             subLoading ? <SkeletonList count={2} /> : (
               <div className="space-y-2">
-                <div className="game-card p-4 flex items-center justify-between">
+                <div className="game-card p-3 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Quests Completed</span>
                   <span className="font-mono font-bold text-neon-purple">{submissions.length}</span>
                 </div>
-                <div className="game-card p-4 flex items-center justify-between">
+                <div className="game-card p-3 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Total XP Earned</span>
                   <span className="font-mono font-bold text-neon-gold">
-                    {submissions.reduce((sum: number, s: any) => sum + s.xpAwarded, 0)}
+                    {submissions.reduce((s: number, sub: any) => s + sub.xpAwarded, 0)}
                   </span>
                 </div>
               </div>
@@ -176,15 +165,22 @@ export default function ProfilePage() {
               <div className="grid grid-cols-3 gap-1.5">
                 {submissions.map((sub: any) => (
                   <div key={sub.id} className="aspect-square relative overflow-hidden rounded-xl border border-border">
-                    <img src={sub.photoUrl} alt={sub.caption || ""} className="w-full h-full object-cover" />
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 p-1.5">
-                      <p className="text-[9px] text-white truncate">{sub.quest.title}</p>
+                    {sub.mediaType === "VIDEO" ? (
+                      <video src={sub.mediaUrl} muted playsInline className="w-full h-full object-cover bg-black" />
+                    ) : (
+                      <img src={sub.mediaUrl} alt={sub.caption || ""} className="w-full h-full object-cover" />
+                    )}
+                    {sub.mediaType === "VIDEO" && (
+                      <span className="absolute top-1 right-1 text-[9px] px-1 py-0.5 rounded bg-black/60 text-white">🎥</span>
+                    )}
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 p-1">
+                      <p className="text-[9px] text-white truncate">{sub.quest?.title}</p>
                     </div>
                   </div>
                 ))}
                 {submissions.length === 0 && (
-                  <div className="col-span-3 text-center py-10 text-muted-foreground text-sm">
-                    No photos yet — complete quests to fill your album!
+                  <div className="col-span-3 text-center py-8 text-muted-foreground text-sm">
+                    Одоохондоо хоосон байна
                   </div>
                 )}
               </div>
@@ -193,107 +189,32 @@ export default function ProfilePage() {
         </AnimatedItem>
       </AnimatedList>
 
-      {/* Logout Confirmation Modal */}
+      {/* Logout modal */}
       <AnimatePresence>
         {showLogout && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowLogout(false)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="game-card p-6 w-full max-w-sm text-center space-y-4"
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              className="game-card p-5 w-full max-w-xs text-center space-y-4"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-4xl">👋</div>
-              <h3 className="font-display text-lg font-bold">Гарах уу?</h3>
-              <p className="text-sm text-muted-foreground">Та системээс гарахдаа итгэлтэй байна уу?</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowLogout(false)}
-                  className="btn-game-outline flex-1 text-center"
-                >
-                  Үгүй
-                </button>
-                <button
-                  onClick={logout}
-                  className="flex-1 py-2.5 rounded-xl font-semibold text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all"
-                >
-                  Гарах
-                </button>
+              <div className="text-3xl">👋</div>
+              <h3 className="font-bold">Гарах уу?</h3>
+              <div className="flex gap-2">
+                <button onClick={() => setShowLogout(false)} className="btn-game-outline flex-1">Үгүй</button>
+                <button onClick={logout} className="flex-1 py-2.5 rounded-xl font-semibold text-sm bg-destructive text-white">Гарах</button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Edit Profile Modal */}
-      <AnimatePresence>
-        {showEdit && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowEdit(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="game-card p-6 w-full max-w-sm space-y-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="font-display text-lg font-bold text-center">Edit Profile</h3>
-
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Display Name</label>
-                  <input
-                    type="text"
-                    value={editForm.displayName}
-                    onChange={(e) => setEditForm((f) => ({ ...f, displayName: e.target.value }))}
-                    className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Username</label>
-                  <input
-                    type="text"
-                    value={editForm.username}
-                    onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
-                    className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowEdit(false)}
-                  className="btn-game-outline flex-1 text-center"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={saveProfile}
-                  disabled={saving}
-                  className="btn-game flex-1 text-center"
-                >
-                  {saving ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Edit profile modal — reuses ProfileCompleteModal in edit mode */}
+      <ProfileCompleteModal mode="edit" open={showEdit} onClose={() => setShowEdit(false)} />
     </>
   );
 }

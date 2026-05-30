@@ -31,10 +31,6 @@ export async function GET(
         orderBy: { expiresAt: "asc" },
         take: 10,
       },
-      qaSessions: {
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      },
     },
   });
 

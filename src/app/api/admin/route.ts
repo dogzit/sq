@@ -16,13 +16,13 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
   if (!(await isAdmin(user.id))) return NextResponse.json({ error: "Хандах эрхгүй байна" }, { status: 403 });
 
-  const [userCount, lobbyCount, questCount, submissionCount, sessionCount, shopItemCount] = await Promise.all([
+  const [userCount, lobbyCount, questCount, submissionCount, shopItemCount, pendingTriviaCount] = await Promise.all([
     prisma.user.count(),
     prisma.lobby.count(),
     prisma.quest.count(),
     prisma.questSubmission.count(),
-    prisma.qASession.count(),
     prisma.shopItem.count(),
+    prisma.triviaQuestion.count({ where: { status: "PENDING" } }),
   ]);
 
   const recentUsers = await prisma.user.findMany({
@@ -53,7 +53,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    stats: { userCount, lobbyCount, questCount, submissionCount, sessionCount, shopItemCount },
+    stats: { userCount, lobbyCount, questCount, submissionCount, shopItemCount, pendingTriviaCount },
     recentUsers,
     activeQuests,
     shopItems,

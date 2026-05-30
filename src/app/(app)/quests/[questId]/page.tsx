@@ -19,7 +19,8 @@ interface Quest {
 
 interface Submission {
   id: string;
-  photoUrl: string;
+  mediaUrl: string;
+  mediaType: "IMAGE" | "VIDEO";
   caption: string | null;
   vetoStatus: string;
   xpAwarded: number;
@@ -40,7 +41,9 @@ export default function QuestDetailPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState("");
-  const [preview, setPreview] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewType, setPreviewType] = useState<"IMAGE" | "VIDEO" | null>(null);
+  const [pickedFile, setPickedFile] = useState<File | null>(null);
   const [votingId, setVotingId] = useState<string | null>(null);
   const { user: currentUser } = useUser();
   const currentUserId = currentUser?.id || null;
@@ -66,36 +69,57 @@ export default function QuestDetailPage() {
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking same file
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result as string);
-    reader.readAsDataURL(file);
+
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    if (!isImage && !isVideo) { toast.error("Зураг эсвэл видео сонгоно уу"); return; }
+
+    const maxSize = isVideo ? 80 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error(isVideo ? "Видео 80MB-аас бага байх ёстой" : "Зураг 10MB-аас бага байх ёстой");
+      return;
+    }
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPickedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewType(isVideo ? "VIDEO" : "IMAGE");
   }
 
-  async function submitPhoto() {
-    if (!preview) return;
+  function clearPreview() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPickedFile(null);
+    setPreviewUrl(null);
+    setPreviewType(null);
+  }
+
+  async function submitMedia() {
+    if (!pickedFile) return;
     setUploading(true);
     try {
-      const res = await fetch("/api/submissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questId, photo: preview, caption }),
-      });
+      const form = new FormData();
+      form.append("file", pickedFile);
+      form.append("questId", questId);
+      if (caption) form.append("caption", caption);
+
+      const res = await fetch("/api/submissions", { method: "POST", body: form });
       const data = await res.json();
-      if (data.submission) {
-        setPreview(null);
-        setCaption("");
-        if (data.pending) {
-          toast.success("Илгээлээ! Lobby гишүүд vote хийхийг хүлээж байна.");
-        } else {
-          toast.success(`Quest биелэгдлээ! +${data.submission.xpAwarded} XP`);
-        }
-        loadSubmissions();
-      } else {
+      if (!res.ok) {
         toast.error(data.error || "Илгээж чадсангүй");
+        return;
       }
+      clearPreview();
+      setCaption("");
+      if (data.pending) {
+        toast.success("Илгээлээ! Lobby гишүүд vote хийхийг хүлээж байна.");
+      } else {
+        toast.success(`Quest биелэгдлээ! +${data.submission.xpAwarded} XP`);
+      }
+      loadSubmissions();
     } catch {
-      toast.error("Зураг илгээхэд алдаа гарлаа");
+      toast.error("Файл илгээхэд алдаа гарлаа");
     } finally {
       setUploading(false);
     }
@@ -155,22 +179,69 @@ export default function QuestDetailPage() {
           <AnimatedItem>
             <div className="game-card p-5 space-y-4">
               <h3 className="font-display text-sm font-semibold">Submit Proof</h3>
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
 
-              {preview ? (
+              {previewUrl ? (
                 <div className="space-y-3">
-                  <img src={preview} alt="Preview" className="w-full rounded-xl border border-border" />
+                  {previewType === "VIDEO" ? (
+                    <video
+                      src={previewUrl}
+                      controls
+                      playsInline
+                      className="w-full rounded-xl border border-border bg-black max-h-[60vh]"
+                    />
+                  ) : (
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      className="w-full rounded-xl border border-border"
+                    />
+                  )}
+
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="pill bg-secondary">
+                      {previewType === "VIDEO" ? "🎥 Видео" : "🖼️ Зураг"}
+                    </span>
+                    {pickedFile && (
+                      <span>{(pickedFile.size / (1024 * 1024)).toFixed(1)} MB</span>
+                    )}
+                  </div>
+
                   <input
                     value={caption}
                     onChange={(e) => setCaption(e.target.value)}
-                    placeholder="Add a caption..."
+                    placeholder="Caption бичих..."
                     className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all placeholder:text-muted-foreground/50"
                   />
+
                   <div className="flex gap-2">
-                    <button onClick={submitPhoto} disabled={uploading} className="btn-game flex-1 text-sm">
-                      {uploading ? "Uploading..." : "Submit"}
+                    <button
+                      onClick={submitMedia}
+                      disabled={uploading}
+                      className="btn-game flex-1 text-sm disabled:opacity-40"
+                    >
+                      {uploading ? "Хуулж байна..." : "Илгээх"}
                     </button>
-                    <button onClick={() => setPreview(null)} className="btn-game-outline text-sm px-4">Cancel</button>
+                    <button
+                      onClick={() => fileRef.current?.click()}
+                      disabled={uploading}
+                      className="btn-game-outline text-sm px-4"
+                    >
+                      🔄
+                    </button>
+                    <button
+                      onClick={clearPreview}
+                      disabled={uploading}
+                      className="btn-game-outline text-sm px-4"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -178,8 +249,13 @@ export default function QuestDetailPage() {
                   onClick={() => fileRef.current?.click()}
                   className="w-full border-2 border-dashed border-border rounded-2xl py-10 text-center hover:border-neon-purple/40 transition-all group"
                 >
-                  <div className="text-4xl mb-2">📸</div>
-                  <div className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Tap to take a photo</div>
+                  <div className="text-4xl mb-2">📸 🎥</div>
+                  <div className="text-sm font-semibold text-foreground group-hover:text-neon-purple transition-colors">
+                    Зураг эсвэл видео сонгох
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    Галерейгаас сонгоно уу · Зураг ≤ 10MB · Видео ≤ 80MB
+                  </div>
                 </button>
               )}
             </div>
@@ -247,7 +323,16 @@ export default function QuestDetailPage() {
                         <span className="pill bg-destructive/10 text-destructive ml-auto">Rejected</span>
                       )}
                     </div>
-                    <img src={sub.photoUrl} alt="" className="w-full rounded-xl" />
+                    {sub.mediaType === "VIDEO" ? (
+                      <video
+                        src={sub.mediaUrl}
+                        controls
+                        playsInline
+                        className="w-full rounded-xl bg-black"
+                      />
+                    ) : (
+                      <img src={sub.mediaUrl} alt="" className="w-full rounded-xl" />
+                    )}
                     {sub.caption && (
                       <p className="text-sm text-muted-foreground mt-2">{sub.caption}</p>
                     )}

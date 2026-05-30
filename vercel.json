@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/daily-quests",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/safe-mode-daily",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/ai-daily-quests",
+      "schedule": "0 23 * * *"
     }
   ],
   "headers": [

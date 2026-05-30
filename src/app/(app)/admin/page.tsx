@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { toast } from "sonner";
 
 interface AdminData {
-  stats: { userCount: number; lobbyCount: number; questCount: number; submissionCount: number; sessionCount: number; shopItemCount: number };
+  stats: { userCount: number; lobbyCount: number; questCount: number; submissionCount: number; shopItemCount: number; pendingTriviaCount: number };
   recentUsers: any[];
   activeQuests: any[];
   shopItems: any[];
@@ -169,7 +170,6 @@ export default function AdminPage() {
     { label: "Lobbies", value: data.stats.lobbyCount, emoji: "🏠", color: "text-neon-blue" },
     { label: "Quests", value: data.stats.questCount, emoji: "⚡", color: "text-neon-gold" },
     { label: "Submissions", value: data.stats.submissionCount, emoji: "📸", color: "text-neon-green" },
-    { label: "Games", value: data.stats.sessionCount, emoji: "🎮", color: "text-neon-orange" },
     { label: "Shop", value: data.stats.shopItemCount, emoji: "🛒", color: "text-neon-pink" },
   ];
 
@@ -257,6 +257,40 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+        </AnimatedItem>
+
+        {/* Quick action — Trivia moderation */}
+        <AnimatedItem>
+          <Link
+            href="/admin/trivia"
+            className={`game-card p-4 flex items-center justify-between group ${
+              data.stats.pendingTriviaCount > 0 ? "ring-1 ring-neon-gold/40" : ""
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="emoji-ring">🧠</div>
+              <div>
+                <div className="text-sm font-semibold group-hover:text-neon-purple transition-colors">
+                  Trivia модерац
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {data.stats.pendingTriviaCount > 0
+                    ? `${data.stats.pendingTriviaCount} асуулт батлагдахыг хүлээж байна`
+                    : "Бүх асуулт шийдэгдсэн"}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {data.stats.pendingTriviaCount > 0 && (
+                <span className="pill bg-neon-gold/15 text-neon-gold font-mono">
+                  ⏳ {data.stats.pendingTriviaCount}
+                </span>
+              )}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </div>
+          </Link>
         </AnimatedItem>
 
         {/* Tabs */}

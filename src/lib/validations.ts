@@ -21,12 +21,6 @@ export const otpVerifySchema = z.object({
   code: z.string().length(6, "Code must be 6 digits").regex(/^\d+$/, "Digits only"),
 });
 
-export const submissionSchema = z.object({
-  questId: z.string().min(1, "Quest ID required"),
-  photo: z.string().min(1, "Photo required"),
-  caption: z.string().max(500).optional(),
-});
-
 export const lobbyCreateSchema = z.object({
   name: z.string().min(1, "Name required").max(50),
   maxMembers: z.number().int().min(2).max(50).optional(),
@@ -40,18 +34,6 @@ export const locationSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   accuracy: z.number().optional(),
-});
-
-export const answerSchema = z.object({
-  questionId: z.string().min(1),
-  selectedIndex: z.number().int().min(0).max(3),
-  responseTimeMs: z.number().int().min(0),
-});
-
-export const sessionCreateSchema = z.object({
-  lobbyId: z.string().min(1, "Lobby ID required"),
-  gameType: z.enum(["TRIVIA", "SPEED_TAP", "EMOJI_GUESS", "WORD_SCRAMBLE"]).optional(),
-  roundCount: z.number().int().min(1).max(20).optional(),
 });
 
 export const emergencySchema = z.object({
@@ -70,6 +52,7 @@ export const shopUseSchema = z.object({
 export const profileUpdateSchema = z.object({
   displayName: z.string().min(1).max(50).optional(),
   username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/).optional(),
+  bio: z.string().max(120).optional(),
 });
 
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): { success: true; data: T } | { success: false; error: string } {

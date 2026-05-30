@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import Link from "next/link";
@@ -18,14 +18,12 @@ interface LobbyDetail {
     user: { id: string; username: string; displayName: string; avatarUrl: string | null; xp: number; level: number };
   }[];
   quests: { id: string; title: string; xpReward: number; difficulty: string; expiresAt: string }[];
-  qaSessions: { id: string; gameType: string; status: string; createdAt: string }[];
 }
 
 export default function LobbyDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const [lobby, setLobby] = useState<LobbyDetail | null>(null);
-  const [tab, setTab] = useState<"members" | "quests" | "games">("members");
+  const [tab, setTab] = useState<"members" | "quests" | "trivia">("members");
   const [generating, setGenerating] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteUsername, setInviteUsername] = useState("");
@@ -50,16 +48,6 @@ export default function LobbyDetailPage() {
     setLobby(d.lobby);
     setGenerating(false);
     toast.success("Quest-үүд амжилттай үүслээ!");
-  }
-
-  async function startGame() {
-    const res = await fetch("/api/qa/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lobbyId, gameType: "TRIVIA", roundCount: 5 }),
-    });
-    const data = await res.json();
-    if (data.session) router.push(`/games/${data.session.id}`);
   }
 
   async function sendInvite() {
@@ -92,7 +80,7 @@ export default function LobbyDetailPage() {
   const tabs = [
     { key: "members", label: "Members", count: lobby.members.length },
     { key: "quests", label: "Quests", count: lobby.quests.length },
-    { key: "games", label: "Games", count: lobby.qaSessions.length },
+    { key: "trivia", label: "Trivia", count: null },
   ] as const;
 
   return (
@@ -118,9 +106,9 @@ export default function LobbyDetailPage() {
             <button onClick={generateQuests} disabled={generating} className="btn-game text-xs text-center disabled:opacity-50">
               {generating ? "..." : "⚡ Quests"}
             </button>
-            <button onClick={startGame} className="btn-game-outline text-xs text-center">
-              🎮 Game
-            </button>
+            <Link href="/trivia" className="btn-game-outline text-xs text-center">
+              🧠 Trivia
+            </Link>
             <button onClick={() => setShowInvite(!showInvite)} className="btn-game-outline text-xs text-center">
               📨 Invite
             </button>
@@ -158,7 +146,7 @@ export default function LobbyDetailPage() {
                     : "text-muted-foreground"
                 }`}
               >
-                {t.label} ({t.count})
+                {t.label}{t.count != null && ` (${t.count})`}
               </button>
             ))}
           </div>
@@ -211,34 +199,52 @@ export default function LobbyDetailPage() {
             </div>
           )}
 
-          {tab === "games" && (
+          {tab === "trivia" && (
             <div className="space-y-2">
-              {lobby.qaSessions.length === 0 ? (
-                <div className="game-card p-8 text-center">
-                  <p className="text-muted-foreground">No games yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Start a trivia game!</p>
+              <Link href="/trivia" className="game-card p-4 flex items-center gap-3 group">
+                <div className="emoji-ring">🧠</div>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold group-hover:text-neon-purple transition-colors">
+                    Тоглох
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Хариулж шагнал ав (Coin + XP)
+                  </div>
                 </div>
-              ) : (
-                lobby.qaSessions.map((s) => (
-                  <Link key={s.id} href={`/games/${s.id}`}>
-                    <div className="game-card p-3.5 flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-semibold">🎮 {s.gameType}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(s.createdAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <span className={`pill ${
-                        s.status === "FINISHED" ? "bg-neon-green/10 text-neon-green" :
-                        s.status === "IN_PROGRESS" ? "bg-neon-gold/10 text-neon-gold" :
-                        "bg-secondary text-muted-foreground"
-                      }`}>
-                        {s.status}
-                      </span>
-                    </div>
-                  </Link>
-                ))
-              )}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </Link>
+
+              <Link href="/trivia/create" className="game-card p-4 flex items-center gap-3 group">
+                <div className="emoji-ring">✍️</div>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold group-hover:text-neon-purple transition-colors">
+                    Асуулт үүсгэх
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Шинэ trivia илгээх — Админ батална
+                  </div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </Link>
+
+              <Link href="/trivia/mine" className="game-card p-4 flex items-center gap-3 group">
+                <div className="emoji-ring">📝</div>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold group-hover:text-neon-purple transition-colors">
+                    Миний Trivia
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Өөрийн илгээсэн асуултуудын статус
+                  </div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </Link>
             </div>
           )}
         </AnimatedItem>

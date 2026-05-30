@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { useUser } from "@/lib/swr";
 
 const navItems = [
   {
@@ -59,8 +60,22 @@ const navItems = [
   },
 ];
 
+const adminItem = {
+  href: "/admin",
+  label: "Admin",
+  icon: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  ),
+};
+
 export default function BottomNav() {
   const pathname = usePathname();
+  const { user } = useUser();
+
+  const items = user?.isAdmin ? [...navItems, adminItem] : navItems;
 
   return (
     <nav
@@ -68,7 +83,7 @@ export default function BottomNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="mx-auto flex max-w-2xl items-center justify-around px-2 py-1">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <Link

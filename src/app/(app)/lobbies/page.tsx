@@ -176,7 +176,6 @@ export default function LobbiesPage() {
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="stat-chip">👥 {lobby.members.length}</span>
                     <span className="stat-chip">⚡ {lobby._count.quests}</span>
-                    <span className="stat-chip">🎮 {lobby._count.qaSessions}</span>
                   </div>
                   <div className="avatar-stack">
                     {lobby.members.slice(0, 4).map((m: any, i: number) => (

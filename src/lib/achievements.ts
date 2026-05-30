@@ -9,7 +9,6 @@ export async function checkAchievements(userId: string, context: {
   coinsSpent?: number;
   newLevel?: number;
   newStreak?: number;
-  triviaScore?: { correct: number; total: number };
 }) {
   const unlocked: string[] = [];
 
@@ -90,13 +89,6 @@ export async function checkAchievements(userId: string, context: {
     });
     const spent = totalSpent.reduce((sum, p) => sum + p.item.price, 0);
     if (spent >= 1000) await tryUnlock("big_spender");
-  }
-
-  // Trivia King (100% on a game)
-  if (context.triviaScore) {
-    if (context.triviaScore.correct === context.triviaScore.total && context.triviaScore.total > 0) {
-      await tryUnlock("trivia_perfect");
-    }
   }
 
   return unlocked;

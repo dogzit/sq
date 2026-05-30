@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     include: {
       submissions: {
         where: { userId: user.id },
-        select: { id: true, vetoStatus: true, photoUrl: true },
+        select: { id: true, vetoStatus: true, mediaUrl: true, mediaType: true },
       },
       template: {
         include: { category: true },
