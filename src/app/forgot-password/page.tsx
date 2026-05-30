@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error || "Failed to send code");
+        toast.error(data.error || "Код илгээж чадсангүй");
         return;
       }
       toast.success("Нууц үг сэргээх код илгээлээ");
@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
       setCooldown(60);
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     } finally {
       setLoading(false);
     }
@@ -105,7 +105,7 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Reset failed");
+        toast.error(data.error || "Нууц үг солих амжилтгүй боллоо");
         if (data.error?.includes("Код")) {
           setStep("code");
           setDigits(["", "", "", "", "", ""]);
@@ -116,7 +116,7 @@ export default function ForgotPasswordPage() {
       toast.success("Нууц үг амжилттай солигдлоо!");
       router.push("/dashboard");
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     } finally {
       setLoading(false);
     }

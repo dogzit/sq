@@ -4,12 +4,12 @@ import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { purchaseId, lobbyId } = await request.json();
 
   if (!purchaseId || !lobbyId) {
-    return NextResponse.json({ error: "Purchase ID and lobby ID required" }, { status: 400 });
+    return NextResponse.json({ error: "Худалдан авалт болон lobby шаардлагатай" }, { status: 400 });
   }
 
   const purchase = await prisma.userShopItem.findUnique({
@@ -18,10 +18,10 @@ export async function POST(request: Request) {
   });
 
   if (!purchase || purchase.userId !== user.id) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: "Олдсонгүй" }, { status: 404 });
   }
   if (purchase.item.itemType !== "TITLE") {
-    return NextResponse.json({ error: "Not a title item" }, { status: 400 });
+    return NextResponse.json({ error: "Title төрлийн бараа биш байна" }, { status: 400 });
   }
 
   // Update lobby member's custom title

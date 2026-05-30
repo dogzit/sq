@@ -14,6 +14,7 @@ interface ShopItem {
   itemType: string;
   value: string;
   iconEmoji: string;
+  rarity: string;
 }
 
 interface Purchase {
@@ -27,6 +28,23 @@ const typeConfig: Record<string, { label: string; color: string; bg: string }> =
   TITLE: { label: "Title", color: "text-neon-purple", bg: "bg-neon-purple/10" },
   BUFF: { label: "Buff", color: "text-neon-green", bg: "bg-neon-green/10" },
   DEBUFF: { label: "Debuff", color: "text-neon-red", bg: "bg-neon-red/10" },
+  XP_BOOST: { label: "XP Boost", color: "text-neon-blue", bg: "bg-neon-blue/10" },
+  QUEST_REROLL: { label: "Reroll", color: "text-neon-orange", bg: "bg-neon-orange/10" },
+  AVATAR_FRAME: { label: "Frame", color: "text-neon-gold", bg: "bg-neon-gold/10" },
+};
+
+const rarityConfig: Record<string, { label: string; border: string; glow: string }> = {
+  COMMON: { label: "", border: "border-border", glow: "" },
+  RARE: { label: "Rare", border: "border-neon-blue/40", glow: "" },
+  EPIC: { label: "Epic", border: "border-neon-purple/50", glow: "shadow-[0_0_12px_rgba(124,92,255,0.15)]" },
+  LEGENDARY: { label: "Legendary", border: "border-neon-gold/50", glow: "shadow-[0_0_16px_rgba(255,200,50,0.2)]" },
+};
+
+const rarityTextColor: Record<string, string> = {
+  COMMON: "text-muted-foreground",
+  RARE: "text-neon-blue",
+  EPIC: "text-neon-purple",
+  LEGENDARY: "text-neon-gold",
 };
 
 export default function ShopPage() {
@@ -35,6 +53,7 @@ export default function ShopPage() {
   const [purchased, setPurchased] = useState<Purchase[]>([]);
   const [buying, setBuying] = useState<string | null>(null);
   const [tab, setTab] = useState<"shop" | "inventory">("shop");
+  const [filter, setFilter] = useState<string>("ALL");
 
   useEffect(() => {
     fetch("/api/shop")
@@ -55,14 +74,14 @@ export default function ShopPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "Purchase failed");
+        toast.error(data.error || "Худалдаж авахад алдаа гарлаа");
         return;
       }
       toast.success("Амжилттай худалдаж авлаа!");
       setPurchased((prev) => [...prev, data.purchase]);
       mutateUser();
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     } finally {
       setBuying(null);
     }
@@ -77,13 +96,13 @@ export default function ShopPage() {
       });
       if (!res.ok) {
         const d = await res.json();
-        toast.error(d.error || "Failed");
+        toast.error(d.error || "Title тавихад алдаа гарлаа");
         return;
       }
-      toast.success("Title тавигдлаа!");
+      toast.success("Title амжилттай тавигдлаа!");
       mutateUser();
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     }
   }
 
@@ -96,23 +115,25 @@ export default function ShopPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "Failed");
+        toast.error(data.error || "Ашиглахад алдаа гарлаа");
         return;
       }
-      toast.success("Item ашиглагдлаа!");
+      toast.success("Амжилттай ашиглагдлаа!");
       setPurchased((prev) =>
         prev.map((p) => (p.id === purchaseId ? { ...p, used: true } : p))
       );
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     }
   }
 
   const unusedItems = purchased.filter((p) => !p.used);
+  const itemTypes = ["ALL", ...new Set(items.map((i) => i.itemType))];
+  const filteredItems = filter === "ALL" ? items : items.filter((i) => i.itemType === filter);
 
   return (
     <>
-      <TopBar title="Shop" />
+      <TopBar title="Shop" showBack />
 
       <AnimatedList className="px-4 py-4 space-y-4 max-w-2xl mx-auto pb-24">
         {/* Coin Balance */}
@@ -150,56 +171,84 @@ export default function ShopPage() {
 
         {/* Shop Tab */}
         {tab === "shop" && (
-          <AnimatedItem>
-            <div className="space-y-2">
-              {items.length === 0 ? (
-                <div className="game-card p-8 text-center text-sm text-muted-foreground">
-                  Дэлгүүр хоосон байна
-                </div>
-              ) : (
-                items.map((item) => {
-                  const tc = typeConfig[item.itemType] || typeConfig.TITLE;
-                  const canAfford = (user?.coins ?? 0) >= item.price;
-                  const alreadyOwned = item.itemType === "TITLE" && purchased.some((p) => p.shopItemId === item.id);
+          <>
+            {/* Type Filter */}
+            <AnimatedItem>
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {itemTypes.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setFilter(type)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                      filter === type
+                        ? "bg-neon-purple text-white"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {type === "ALL" ? "All" : typeConfig[type]?.label || type}
+                  </button>
+                ))}
+              </div>
+            </AnimatedItem>
 
-                  return (
-                    <div key={item.id} className="game-card p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="text-3xl flex-shrink-0">{item.iconEmoji}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-sm font-semibold">{item.name}</h3>
-                            <span className={`pill ${tc.bg} ${tc.color}`}>{tc.label}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-3">{item.description}</p>
-                          <div className="flex items-center justify-between">
-                            <span className="pill bg-neon-gold/10 text-neon-gold font-mono">
-                              🪙 {item.price}
-                            </span>
-                            {alreadyOwned ? (
-                              <span className="text-xs text-neon-green font-medium">Авсан</span>
-                            ) : (
-                              <button
-                                onClick={() => handleBuy(item.id)}
-                                disabled={!canAfford || buying === item.id}
-                                className={`text-xs py-2 px-4 rounded-xl font-semibold transition-colors ${
-                                  canAfford
-                                    ? "bg-neon-purple text-white hover:bg-neon-purple/80"
-                                    : "bg-secondary text-muted-foreground cursor-not-allowed"
-                                }`}
-                              >
-                                {buying === item.id ? "..." : canAfford ? "Худалдаж авах" : "Coin хүрэхгүй"}
-                              </button>
-                            )}
+            <AnimatedItem>
+              <div className="space-y-2">
+                {filteredItems.length === 0 ? (
+                  <div className="game-card p-8 text-center text-sm text-muted-foreground">
+                    Дэлгүүр хоосон байна
+                  </div>
+                ) : (
+                  filteredItems.map((item) => {
+                    const tc = typeConfig[item.itemType] || typeConfig.TITLE;
+                    const rc = rarityConfig[item.rarity] || rarityConfig.COMMON;
+                    const canAfford = (user?.coins ?? 0) >= item.price;
+                    const alreadyOwned = (item.itemType === "TITLE" || item.itemType === "AVATAR_FRAME")
+                      && purchased.some((p) => p.shopItemId === item.id);
+
+                    return (
+                      <div key={item.id} className={`game-card p-4 ${rc.border} ${rc.glow}`}>
+                        <div className="flex items-start gap-3">
+                          <div className="text-3xl flex-shrink-0">{item.iconEmoji}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <h3 className="text-sm font-semibold">{item.name}</h3>
+                              <span className={`pill ${tc.bg} ${tc.color}`}>{tc.label}</span>
+                              {item.rarity !== "COMMON" && (
+                                <span className={`text-[10px] font-bold ${rarityTextColor[item.rarity]}`}>
+                                  {rc.label}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-3">{item.description}</p>
+                            <div className="flex items-center justify-between">
+                              <span className="pill bg-neon-gold/10 text-neon-gold font-mono">
+                                🪙 {item.price}
+                              </span>
+                              {alreadyOwned ? (
+                                <span className="text-xs text-neon-green font-medium">Авсан</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleBuy(item.id)}
+                                  disabled={!canAfford || buying === item.id}
+                                  className={`text-xs py-2 px-4 rounded-xl font-semibold transition-colors ${
+                                    canAfford
+                                      ? "bg-neon-purple text-white hover:bg-neon-purple/80"
+                                      : "bg-secondary text-muted-foreground cursor-not-allowed"
+                                  }`}
+                                >
+                                  {buying === item.id ? "..." : canAfford ? "Худалдаж авах" : "Coin хүрэхгүй"}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </AnimatedItem>
+                    );
+                  })
+                )}
+              </div>
+            </AnimatedItem>
+          </>
         )}
 
         {/* Inventory Tab */}
@@ -214,6 +263,11 @@ export default function ShopPage() {
               ) : (
                 unusedItems.map((p) => {
                   const tc = typeConfig[p.item.itemType] || typeConfig.TITLE;
+                  const isTitle = p.item.itemType === "TITLE";
+                  const isFrame = p.item.itemType === "AVATAR_FRAME";
+                  const isSelfBuff = p.item.itemType === "XP_BOOST";
+                  const isReroll = p.item.itemType === "QUEST_REROLL";
+
                   return (
                     <div key={p.id} className="game-card p-4">
                       <div className="flex items-center gap-3">
@@ -225,13 +279,22 @@ export default function ShopPage() {
                           </div>
                           <p className="text-xs text-muted-foreground">{p.item.description}</p>
                         </div>
-                        {p.item.itemType === "TITLE" ? (
+                        {isTitle || isFrame ? (
                           <button
                             onClick={() => handleEquipTitle(p.id)}
                             className="text-xs py-2 px-3 rounded-xl bg-neon-purple/10 text-neon-purple font-semibold hover:bg-neon-purple/20 transition-colors"
                           >
                             Зүүх
                           </button>
+                        ) : isSelfBuff ? (
+                          <button
+                            onClick={() => user && handleUseItem(p.id, user.id)}
+                            className="text-xs py-2 px-3 rounded-xl bg-neon-blue/10 text-neon-blue font-semibold hover:bg-neon-blue/20 transition-colors"
+                          >
+                            Идэвхжүүлэх
+                          </button>
+                        ) : isReroll ? (
+                          <span className="text-xs text-muted-foreground">Quest-д ашиглана</span>
                         ) : (
                           <UseItemButton purchase={p} onUse={handleUseItem} />
                         )}
@@ -256,16 +319,10 @@ function UseItemButton({ purchase, onUse }: { purchase: Purchase; onUse: (id: st
 
   function handleOpen() {
     setOpen(true);
-    // Fetch lobby members to target
-    fetch("/api/auth/me")
+    fetch("/api/leaderboard")
       .then((r) => r.json())
-      .then(() => {
-        // Get all users from lobbies
-        fetch("/api/leaderboard")
-          .then((r) => r.json())
-          .then((d) => setMembers((d.leaderboard || []).filter((m: any) => m.id !== user?.id)))
-          .catch(() => {});
-      });
+      .then((d) => setMembers((d.leaderboard || []).filter((m: any) => m.id !== user?.id)))
+      .catch(() => {});
   }
 
   if (!open) {

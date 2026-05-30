@@ -6,7 +6,7 @@ import { lobbyCreateSchema } from "@/lib/validations";
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const lobbies = await prisma.lobby.findMany({
     where: {
@@ -29,7 +29,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const body = await request.json();
   const parsed = lobbyCreateSchema.safeParse(body);

@@ -5,7 +5,7 @@ import { lobbyJoinSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const body = await request.json();
   const parsed = lobbyJoinSchema.safeParse(body);
@@ -18,11 +18,11 @@ export async function POST(request: Request) {
   });
 
   if (!lobby || !lobby.isActive) {
-    return NextResponse.json({ error: "Lobby not found" }, { status: 404 });
+    return NextResponse.json({ error: "Lobby олдсонгүй" }, { status: 404 });
   }
 
   if (lobby._count.members >= lobby.maxMembers) {
-    return NextResponse.json({ error: "Lobby is full" }, { status: 400 });
+    return NextResponse.json({ error: "Lobby дүүрсэн байна" }, { status: 400 });
   }
 
   const existing = await prisma.lobbyMember.findUnique({
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   });
 
   if (existing) {
-    return NextResponse.json({ error: "Already a member" }, { status: 409 });
+    return NextResponse.json({ error: "Аль хэдийн гишүүн байна" }, { status: 409 });
   }
 
   await prisma.lobbyMember.create({

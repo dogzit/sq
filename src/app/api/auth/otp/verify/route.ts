@@ -7,12 +7,12 @@ import { cookies } from "next/headers";
 export async function POST(request: Request) {
   try {
     const { success } = rateLimitByIp(request, "otp-verify", { maxRequests: 5, windowMs: 60_000 });
-    if (!success) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    if (!success) return NextResponse.json({ error: "Хэт олон оролдлого. Түр хүлээнэ үү." }, { status: 429 });
 
     const { email, code } = await request.json();
 
     if (!email || !code) {
-      return NextResponse.json({ error: "Email and code required" }, { status: 400 });
+      return NextResponse.json({ error: "Имэйл болон код шаардлагатай" }, { status: 400 });
     }
 
     // Case 1: New signup — check PendingSignup
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       });
       if (conflict) {
         await prisma.pendingSignup.delete({ where: { id: pending.id } });
-        return NextResponse.json({ error: "Email or username already taken" }, { status: 409 });
+        return NextResponse.json({ error: "Имэйл эсвэл хэрэглэгчийн нэр бүртгэлтэй байна" }, { status: 409 });
       }
 
       // Create user + delete pending in one transaction
@@ -123,6 +123,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("OTP verify error:", error);
-    return NextResponse.json({ error: "Verification failed" }, { status: 500 });
+    return NextResponse.json({ error: "Баталгаажуулалт амжилтгүй боллоо" }, { status: 500 });
   }
 }

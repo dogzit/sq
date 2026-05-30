@@ -7,14 +7,14 @@ export async function GET(
   { params }: { params: Promise<{ lobbyId: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { lobbyId } = await params;
 
   const member = await prisma.lobbyMember.findUnique({
     where: { userId_lobbyId: { userId: user.id, lobbyId } },
   });
-  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
+  if (!member) return NextResponse.json({ error: "Гишүүн биш байна" }, { status: 403 });
 
   const lobby = await prisma.lobby.findUnique({
     where: { id: lobbyId },
@@ -38,7 +38,7 @@ export async function GET(
     },
   });
 
-  if (!lobby) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!lobby) return NextResponse.json({ error: "Олдсонгүй" }, { status: 404 });
 
   return NextResponse.json({ lobby });
 }

@@ -27,7 +27,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Login failed");
+        toast.error(data.error || "Нэвтрэх боломжгүй байна");
         return;
       }
 
@@ -37,10 +37,10 @@ export default function LoginPage() {
         return;
       }
 
-      toast.success("Welcome back!");
+      toast.success("Тавтай морил!");
       router.push("/dashboard");
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     } finally {
       setLoading(false);
     }

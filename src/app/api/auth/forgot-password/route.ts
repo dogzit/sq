@@ -10,12 +10,12 @@ function generateCode(): string {
 export async function POST(request: Request) {
   try {
     const { success } = rateLimitByIp(request, "forgot-password", { maxRequests: 3, windowMs: 60_000 });
-    if (!success) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    if (!success) return NextResponse.json({ error: "Хэт олон оролдлого. Түр хүлээнэ үү." }, { status: 429 });
 
     const { email } = await request.json();
 
     if (!email) {
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
+      return NextResponse.json({ error: "Имэйл шаардлагатай" }, { status: 400 });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -46,6 +46,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ sent: true });
   } catch (error) {
     console.error("Forgot password error:", error);
-    return NextResponse.json({ error: "Failed to send reset code" }, { status: 500 });
+    return NextResponse.json({ error: "Сэргээх код илгээж чадсангүй" }, { status: 500 });
   }
 }

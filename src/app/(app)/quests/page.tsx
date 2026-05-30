@@ -26,7 +26,7 @@ export default function QuestsPage() {
 
   return (
     <>
-      <TopBar title="Quests" />
+      <TopBar title="Quests" showBack />
 
       <div className="px-4 py-4 space-y-3 max-w-2xl mx-auto">
         <div className="flex items-center justify-between">

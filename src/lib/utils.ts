@@ -14,12 +14,35 @@ export function generateLobbyCode(): string {
   return code;
 }
 
-export function calculateLevel(xp: number): number {
-  return Math.floor(xp / 200) + 1;
+// ── Leveling (quadratic curve) ──
+
+/** Cumulative XP needed to reach a given level */
+export function xpForLevel(level: number): number {
+  if (level <= 1) return 0;
+  return 50 * (level - 1) * level;
 }
 
-export function xpForNextLevel(level: number): number {
-  return level * 200;
+/** Calculate level from total XP */
+export function calculateLevel(totalXp: number): number {
+  let level = 1;
+  while (xpForLevel(level + 1) <= totalXp) level++;
+  return level;
+}
+
+/** XP remaining to reach next level */
+export function xpToNextLevel(totalXp: number): number {
+  const currentLevel = calculateLevel(totalXp);
+  return xpForLevel(currentLevel + 1) - totalXp;
+}
+
+/** Progress fraction (0-1) within current level */
+export function levelProgress(totalXp: number): number {
+  const currentLevel = calculateLevel(totalXp);
+  const currentLevelXp = xpForLevel(currentLevel);
+  const nextLevelXp = xpForLevel(currentLevel + 1);
+  const range = nextLevelXp - currentLevelXp;
+  if (range <= 0) return 0;
+  return (totalXp - currentLevelXp) / range;
 }
 
 export function formatTimeAgo(date: Date): string {

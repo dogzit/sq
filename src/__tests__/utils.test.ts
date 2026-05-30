@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateLobbyCode, calculateLevel, xpForNextLevel, formatTimeAgo } from "@/lib/utils";
+import { generateLobbyCode, calculateLevel, xpForLevel, xpToNextLevel, levelProgress, formatTimeAgo } from "@/lib/utils";
 
 describe("generateLobbyCode", () => {
   it("returns a 6-character uppercase string", () => {
@@ -14,31 +14,73 @@ describe("generateLobbyCode", () => {
   });
 });
 
-describe("calculateLevel", () => {
+describe("calculateLevel (quadratic curve)", () => {
   it("returns 1 for 0 XP", () => {
     expect(calculateLevel(0)).toBe(1);
   });
 
-  it("returns 1 for XP less than 200", () => {
-    expect(calculateLevel(199)).toBe(1);
+  it("returns 1 for XP less than 100", () => {
+    expect(calculateLevel(99)).toBe(1);
   });
 
-  it("returns 2 for 200 XP", () => {
-    expect(calculateLevel(200)).toBe(2);
+  it("returns 2 for 100 XP", () => {
+    expect(calculateLevel(100)).toBe(2);
   });
 
-  it("returns correct level for higher XP", () => {
-    expect(calculateLevel(1000)).toBe(6);
+  it("returns 3 for 300 XP", () => {
+    expect(calculateLevel(300)).toBe(3);
+  });
+
+  it("returns 5 for 1000 XP", () => {
+    expect(calculateLevel(1000)).toBe(5);
+  });
+
+  it("returns 10 for 4500 XP", () => {
+    expect(calculateLevel(4500)).toBe(10);
   });
 });
 
-describe("xpForNextLevel", () => {
-  it("returns XP threshold for level 1", () => {
-    expect(xpForNextLevel(1)).toBe(200);
+describe("xpForLevel", () => {
+  it("returns 0 for level 1", () => {
+    expect(xpForLevel(1)).toBe(0);
   });
 
-  it("returns XP threshold for level 5", () => {
-    expect(xpForNextLevel(5)).toBe(1000);
+  it("returns 100 for level 2", () => {
+    expect(xpForLevel(2)).toBe(100);
+  });
+
+  it("returns 300 for level 3", () => {
+    expect(xpForLevel(3)).toBe(300);
+  });
+
+  it("returns 1000 for level 5", () => {
+    expect(xpForLevel(5)).toBe(1000);
+  });
+
+  it("returns 4500 for level 10", () => {
+    expect(xpForLevel(10)).toBe(4500);
+  });
+});
+
+describe("xpToNextLevel", () => {
+  it("returns 100 for 0 XP (level 1 → 2)", () => {
+    expect(xpToNextLevel(0)).toBe(100);
+  });
+
+  it("returns 200 for 100 XP (level 2 → 3)", () => {
+    expect(xpToNextLevel(100)).toBe(200);
+  });
+});
+
+describe("levelProgress", () => {
+  it("returns 0 at start of level", () => {
+    expect(levelProgress(0)).toBe(0);
+    expect(levelProgress(100)).toBe(0);
+  });
+
+  it("returns 0.5 at midpoint of level", () => {
+    // Level 1: 0-99, midpoint = 50
+    expect(levelProgress(50)).toBe(0.5);
   });
 });
 

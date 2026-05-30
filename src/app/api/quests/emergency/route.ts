@@ -15,7 +15,7 @@ const emergencyQuests = [
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const body = await request.json();
   const parsed = emergencySchema.safeParse(body);
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     where: { userId_lobbyId: { userId: user.id, lobbyId } },
   });
   if (!member || member.role === "MEMBER") {
-    return NextResponse.json({ error: "Only admins can trigger emergency quests" }, { status: 403 });
+    return NextResponse.json({ error: "Зөвхөн админ emergency quest үүсгэх боломжтой" }, { status: 403 });
   }
 
   // Pick a random emergency quest

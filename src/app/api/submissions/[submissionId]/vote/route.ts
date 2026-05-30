@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { calculateLevel } from "@/lib/utils";
+import { awardQuestXP } from "@/lib/economy";
+import { checkAchievements } from "@/lib/achievements";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ submissionId: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { submissionId } = await params;
   const { verdict } = await request.json(); // "APPROVE" or "REJECT"
 
   if (!["APPROVE", "REJECT"].includes(verdict)) {
-    return NextResponse.json({ error: "Invalid verdict" }, { status: 400 });
+    return NextResponse.json({ error: "Буруу санал" }, { status: 400 });
   }
 
   const submission = await prisma.questSubmission.findUnique({
@@ -22,12 +24,12 @@ export async function POST(
     include: { quest: true },
   });
 
-  if (!submission) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!submission) return NextResponse.json({ error: "Олдсонгүй" }, { status: 404 });
   if (submission.userId === user.id) {
-    return NextResponse.json({ error: "Cannot vote on your own submission" }, { status: 400 });
+    return NextResponse.json({ error: "Өөрийнхөө илгээлтэд санал өгөх боломжгүй" }, { status: 400 });
   }
   if (submission.vetoStatus !== "PENDING") {
-    return NextResponse.json({ error: "Voting already closed" }, { status: 400 });
+    return NextResponse.json({ error: "Санал хураалт дууссан байна" }, { status: 400 });
   }
 
   // Check existing vote — allow changing vote
@@ -37,7 +39,7 @@ export async function POST(
 
   if (existingVote) {
     if (existingVote.verdict === verdict) {
-      return NextResponse.json({ error: "Already voted" }, { status: 409 });
+      return NextResponse.json({ error: "Аль хэдийн санал өгсөн байна" }, { status: 409 });
     }
     // Change vote: update verdict and swap counts
     await prisma.vetoVote.update({
@@ -51,7 +53,15 @@ export async function POST(
         rejectCount: { increment: verdict === "REJECT" ? 1 : -1 },
       },
     });
+
+    // Voter earns 2 coins for participating
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { coins: { increment: 2 } },
+    });
+
     await tryResolve(submission, updated);
+    checkAchievements(user.id, { votesCast: 1 }).catch(() => {});
     return NextResponse.json({ success: true, changed: true, verdict });
   }
 
@@ -66,14 +76,21 @@ export async function POST(
     data: { [field]: { increment: 1 } },
   });
 
+  // Voter earns 2 coins for participating
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { coins: { increment: 2 } },
+  });
+
   await tryResolve(submission, updated);
+  checkAchievements(user.id, { votesCast: 1 }).catch(() => {});
 
   return NextResponse.json({ success: true, verdict });
 }
 
 // Try to resolve submission based on vote counts
 async function tryResolve(
-  submission: { id: string; userId: string; questId: string; quest: { id: string; lobbyId: string | null; xpReward: number } },
+  submission: { id: string; userId: string; questId: string; quest: { id: string; lobbyId: string | null; xpReward: number; difficulty: string } },
   updated: { approveCount: number; rejectCount: number }
 ) {
   const totalVotes = updated.approveCount + updated.rejectCount;
@@ -95,7 +112,7 @@ async function tryResolve(
 
 // Award XP and finalize submission
 async function resolveSubmission(
-  submission: { id: string; userId: string; questId: string; quest: { id: string; lobbyId: string | null; xpReward: number } },
+  submission: { id: string; userId: string; questId: string; quest: { id: string; lobbyId: string | null; xpReward: number; difficulty: string } },
   approved: boolean
 ) {
   if (!approved) {
@@ -103,59 +120,34 @@ async function resolveSubmission(
       where: { id: submission.id },
       data: { vetoStatus: "REJECTED", xpAwarded: 0 },
     });
+    createNotification({
+      userId: submission.userId,
+      type: "submission_rejected",
+      title: "Submission татгалзагдлаа",
+      body: "Таны submission олонхийн саналаар татгалзагдлаа",
+      metadata: { submissionId: submission.id },
+    }).catch(() => {});
     return;
   }
 
-  let multiplier = 1.0;
-  const effects = await prisma.activeEffect.findMany({
-    where: { targetId: submission.userId, consumed: false, expiresAt: { gt: new Date() } },
+  const { xpAwarded, coinsAwarded } = await awardQuestXP({
+    userId: submission.userId,
+    questId: submission.questId,
+    questXpReward: submission.quest.xpReward,
+    questDifficulty: submission.quest.difficulty,
+    lobbyId: submission.quest.lobbyId,
   });
-  for (const effect of effects) {
-    multiplier *= effect.multiplier;
-    await prisma.activeEffect.update({ where: { id: effect.id }, data: { consumed: true } });
-  }
 
-  if (submission.quest.lobbyId) {
-    const member = await prisma.lobbyMember.findUnique({
-      where: { userId_lobbyId: { userId: submission.userId, lobbyId: submission.quest.lobbyId } },
-    });
-    if (member) {
-      const questTemplate = await prisma.quest.findUnique({
-        where: { id: submission.questId },
-        include: { template: { include: { category: true } } },
-      });
-      if (questTemplate?.template?.category?.bonusClass === member.characterClass) {
-        multiplier *= 1.25;
-      }
-    }
-  }
+  await prisma.questSubmission.update({
+    where: { id: submission.id },
+    data: { vetoStatus: "APPROVED", xpAwarded, coinsAwarded },
+  });
 
-  const finalXp = Math.round(submission.quest.xpReward * multiplier);
-  const finalCoins = Math.round(submission.quest.xpReward * 0.2 * multiplier);
-  const submitter = await prisma.user.findUnique({ where: { id: submission.userId } });
-  if (!submitter) return;
-
-  const newXp = submitter.xp + finalXp;
-
-  await prisma.$transaction([
-    prisma.questSubmission.update({
-      where: { id: submission.id },
-      data: { vetoStatus: "APPROVED", xpAwarded: finalXp, coinsAwarded: finalCoins },
-    }),
-    prisma.user.update({
-      where: { id: submission.userId },
-      data: { xp: newXp, coins: { increment: finalCoins }, level: calculateLevel(newXp), streak: { increment: 1 } },
-    }),
-    ...(submission.quest.lobbyId
-      ? [prisma.lobbyMember.updateMany({
-          where: { userId: submission.userId, lobbyId: submission.quest.lobbyId },
-          data: { xpInLobby: { increment: finalXp } },
-        })]
-      : []),
-    prisma.userLocation.upsert({
-      where: { userId: submission.userId },
-      update: { visibleUntil: new Date(Date.now() + 60 * 60 * 1000) },
-      create: { userId: submission.userId, latitude: 0, longitude: 0, visibleUntil: new Date(Date.now() + 60 * 60 * 1000) },
-    }),
-  ]);
+  createNotification({
+    userId: submission.userId,
+    type: "submission_approved",
+    title: "Submission зөвшөөрөгдлөө!",
+    body: `+${xpAwarded} XP, +${coinsAwarded} coins авлаа`,
+    metadata: { submissionId: submission.id, xpAwarded, coinsAwarded },
+  }).catch(() => {});
 }

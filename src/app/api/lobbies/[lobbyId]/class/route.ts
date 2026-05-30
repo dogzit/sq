@@ -8,20 +8,20 @@ export async function PUT(
   { params }: { params: Promise<{ lobbyId: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { lobbyId } = await params;
   const { characterClass } = await request.json();
 
   if (!["TANK", "MAGE", "CLOWN"].includes(characterClass)) {
-    return NextResponse.json({ error: "Invalid class" }, { status: 400 });
+    return NextResponse.json({ error: "Буруу класс" }, { status: 400 });
   }
 
   const member = await prisma.lobbyMember.findUnique({
     where: { userId_lobbyId: { userId: user.id, lobbyId } },
   });
 
-  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
+  if (!member) return NextResponse.json({ error: "Гишүүн биш байна" }, { status: 403 });
 
   const updated = await prisma.lobbyMember.update({
     where: { userId_lobbyId: { userId: user.id, lobbyId } },

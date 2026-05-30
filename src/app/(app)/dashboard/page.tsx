@@ -3,15 +3,43 @@
 import TopBar from "@/components/TopBar";
 import { SkeletonCard, SkeletonProfile } from "@/components/Skeleton";
 import { AnimatedList, AnimatedItem, FadeIn } from "@/components/AnimatedList";
-import { useUser, useQuests } from "@/lib/swr";
+import { useState } from "react";
+import { useUser, useQuests, useCheckIn } from "@/lib/swr";
+import { xpForLevel, calculateLevel, levelProgress, xpToNextLevel } from "@/lib/utils";
 import Link from "next/link";
+import { toast } from "sonner";
 
 export default function DashboardPage() {
-  const { user, isLoading: userLoading } = useUser();
+  const { user, isLoading: userLoading, mutate: mutateUser } = useUser();
   const { quests, isLoading: questsLoading } = useQuests();
+  const { checkedInToday, pendingReward, streak, nextMilestone, mutate: mutateCheckIn } = useCheckIn();
+  const [checkingIn, setCheckingIn] = useState(false);
 
-  const xpForNext = (user?.level || 1) * 200;
-  const xpProgress = user ? (user.xp % 200) / 200 : 0;
+  async function handleCheckIn() {
+    setCheckingIn(true);
+    try {
+      const res = await fetch("/api/checkin", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Check-in хийж чадсангүй");
+        return;
+      }
+      toast.success(`+${data.reward} coin! Streak: ${data.streak} хоног`);
+      mutateCheckIn();
+      mutateUser();
+    } catch {
+      toast.error("Сүлжээний алдаа гарлаа");
+    } finally {
+      setCheckingIn(false);
+    }
+  }
+
+  const userXp = user?.xp || 0;
+  const currentLevel = user ? calculateLevel(userXp) : 1;
+  const xpProgress = user ? levelProgress(userXp) : 0;
+  const xpRemaining = user ? xpToNextLevel(userXp) : 0;
+  const currentLevelXp = xpForLevel(currentLevel);
+  const nextLevelXp = xpForLevel(currentLevel + 1);
 
   return (
     <>
@@ -43,7 +71,7 @@ export default function DashboardPage() {
                   <h2 className="font-display text-lg font-bold text-foreground">
                     {user?.displayName}
                   </h2>
-                  <p className="text-xs text-muted-foreground">Level {user?.level}</p>
+                  <p className="text-xs text-muted-foreground">Level {currentLevel}</p>
                 </div>
                 <div className="text-right">
                   <div className="font-mono text-xl font-bold text-neon-gold text-glow-gold">
@@ -66,10 +94,40 @@ export default function DashboardPage() {
                 />
               </div>
               <p className="text-[11px] text-muted-foreground mt-1.5">
-                {user ? user.xp % 200 : 0} / {xpForNext} XP to Level {(user?.level || 1) + 1}
+                {userXp - currentLevelXp} / {nextLevelXp - currentLevelXp} XP to Level {currentLevel + 1}
+                {user && user.streak > 0 && (
+                  <span className="ml-2 text-neon-orange">+{Math.min(user.streak, 30)}% streak</span>
+                )}
               </p>
             </div>
           )}
+        </AnimatedItem>
+
+        {/* Daily Check-In */}
+        <AnimatedItem>
+          <div className="game-card p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="emoji-ring">{checkedInToday ? "✅" : "🎁"}</div>
+              <div>
+                <div className="text-sm font-semibold">Daily Check-In</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {checkedInToday
+                    ? "Claimed today!"
+                    : `+${pendingReward} coins${nextMilestone ? ` · ${nextMilestone} day milestone soon` : ""}`
+                  }
+                </div>
+              </div>
+            </div>
+            {!checkedInToday && (
+              <button
+                onClick={handleCheckIn}
+                disabled={checkingIn}
+                className="btn-game text-xs px-4 py-2"
+              >
+                {checkingIn ? "..." : "Claim"}
+              </button>
+            )}
+          </div>
         </AnimatedItem>
 
         {/* Quick Actions */}

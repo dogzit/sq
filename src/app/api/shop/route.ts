@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { checkAchievements } from "@/lib/achievements";
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const items = await prisma.shopItem.findMany({
     orderBy: [{ itemType: "asc" }, { price: "asc" }],
@@ -21,27 +22,35 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { shopItemId } = await request.json();
 
   const item = await prisma.shopItem.findUnique({ where: { id: shopItemId } });
-  if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
+  if (!item) return NextResponse.json({ error: "Бараа олдсонгүй" }, { status: 404 });
 
-  if (user.coins < item.price) {
-    return NextResponse.json({ error: "Coin хүрэхгүй байна" }, { status: 400 });
+  // Atomic purchase: check balance, deduct, create in one transaction
+  try {
+    const purchase = await prisma.$transaction(async (tx) => {
+      const freshUser = await tx.user.findUnique({ where: { id: user.id } });
+      if (!freshUser || freshUser.coins < item.price) {
+        throw new Error("INSUFFICIENT_COINS");
+      }
+      await tx.user.update({
+        where: { id: user.id },
+        data: { coins: { decrement: item.price } },
+      });
+      return tx.userShopItem.create({
+        data: { userId: user.id, shopItemId: item.id },
+        include: { item: true },
+      });
+    });
+    checkAchievements(user.id, { coinsSpent: item.price }).catch(() => {});
+    return NextResponse.json({ purchase }, { status: 201 });
+  } catch (e: any) {
+    if (e.message === "INSUFFICIENT_COINS") {
+      return NextResponse.json({ error: "Coin хүрэхгүй байна" }, { status: 400 });
+    }
+    throw e;
   }
-
-  // Deduct coins and create purchase
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { coins: { decrement: item.price } },
-  });
-
-  const purchase = await prisma.userShopItem.create({
-    data: { userId: user.id, shopItemId: item.id },
-    include: { item: true },
-  });
-
-  return NextResponse.json({ purchase }, { status: 201 });
 }

@@ -31,7 +31,7 @@ export default function LobbiesPage() {
     });
     const data = await res.json();
     if (!res.ok) { toast.error(data.error); return; }
-    toast.success("Lobby created!");
+    toast.success("Lobby амжилттай үүслээ!");
     mutate();
     router.push(`/lobbies/${data.lobby.id}`);
   }
@@ -46,11 +46,11 @@ export default function LobbiesPage() {
     if (!res.ok) { toast.error(data.error); return; }
     setInvites((prev) => prev.filter((i) => i.id !== inviteId));
     if (action === "accept") {
-      toast.success("Joined lobby!");
+      toast.success("Lobby-д нэгдлээ!");
       mutate();
       router.push(`/lobbies/${data.lobbyId}`);
     } else {
-      toast.info("Invite declined");
+      toast.info("Урилгыг татгалзлаа");
     }
   }
 
@@ -62,14 +62,14 @@ export default function LobbiesPage() {
     });
     const data = await res.json();
     if (!res.ok) { toast.error(data.error); return; }
-    toast.success("Joined lobby!");
+    toast.success("Lobby-д нэгдлээ!");
     mutate();
     router.push(`/lobbies/${data.lobby.id}`);
   }
 
   return (
     <>
-      <TopBar title="Party" />
+      <TopBar title="Party" showBack />
 
       <AnimatedList className="px-4 py-4 space-y-4 max-w-2xl mx-auto">
         <AnimatedItem>

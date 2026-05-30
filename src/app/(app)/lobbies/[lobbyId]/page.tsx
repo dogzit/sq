@@ -49,7 +49,7 @@ export default function LobbyDetailPage() {
     const d = await res.json();
     setLobby(d.lobby);
     setGenerating(false);
-    toast.success("Quests generated!");
+    toast.success("Quest-үүд амжилттай үүслээ!");
   }
 
   async function startGame() {
@@ -71,14 +71,14 @@ export default function LobbyDetailPage() {
     });
     const data = await res.json();
     if (!res.ok) { toast.error(data.error); return; }
-    toast.success(`Invited @${inviteUsername}!`);
+    toast.success(`@${inviteUsername} урилга илгээлээ!`);
     setInviteUsername("");
     setShowInvite(false);
   }
 
   function copyCode() {
     navigator.clipboard.writeText(lobby?.code || "");
-    toast.success("Code copied!");
+    toast.success("Код хуулагдлаа!");
   }
 
   if (!lobby) {

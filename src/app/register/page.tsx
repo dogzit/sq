@@ -30,7 +30,7 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Registration failed");
+        toast.error(data.error || "Бүртгэл амжилтгүй боллоо");
         return;
       }
 
@@ -40,10 +40,10 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success("Account created!");
+      toast.success("Бүртгэл амжилттай үүслээ!");
       router.push("/dashboard");
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     } finally {
       setLoading(false);
     }

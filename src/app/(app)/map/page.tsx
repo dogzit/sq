@@ -67,6 +67,7 @@ export default function MapPage() {
   return (
     <div className="flex flex-col h-[calc(100dvh-5rem)] overflow-hidden">
       <TopBar
+        showBack
         title="Map"
         rightAction={
           <button

@@ -5,7 +5,7 @@ import { locationSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const body = await request.json();
   const parsed = locationSchema.safeParse(body);
@@ -23,17 +23,17 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const lobbyId = searchParams.get("lobbyId");
 
-  if (!lobbyId) return NextResponse.json({ error: "Lobby ID required" }, { status: 400 });
+  if (!lobbyId) return NextResponse.json({ error: "Lobby шаардлагатай" }, { status: 400 });
 
   const member = await prisma.lobbyMember.findUnique({
     where: { userId_lobbyId: { userId: user.id, lobbyId } },
   });
-  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
+  if (!member) return NextResponse.json({ error: "Гишүүн биш байна" }, { status: 403 });
 
   // ── FOG OF WAR CHECK ──
   // Current user must have visibleUntil > now() to see others

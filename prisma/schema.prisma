@@ -27,9 +27,11 @@ model User {
   coins         Int      @default(0)
   level         Int      @default(1)
   streak        Int      @default(0)
+  lastStreakDate DateTime?
   lastActiveAt  DateTime @default(now())
   createdAt     DateTime @default(now())
   emailVerified Boolean  @default(false)
+  isAdmin       Boolean  @default(false)
   updatedAt     DateTime @updatedAt
 
   // ── Relations ──
@@ -46,6 +48,9 @@ model User {
   sentEffects     ActiveEffect[]    @relation("EffectCaster")
   receivedEffects ActiveEffect[]    @relation("EffectTarget")
   albums          Album[]
+  checkIns        DailyCheckIn[]
+  achievements    UserAchievement[]
+  notifications   Notification[]
 
   @@index([xp(sort: Desc)])
   @@index([coins(sort: Desc)])
@@ -431,15 +436,19 @@ model ShopItem {
   /// For TITLE: the display text. For BUFF/DEBUFF: effect multiplier (e.g. 0.75 = -25%)
   value       String
   iconEmoji   String       @default("🎁")
+  rarity      ItemRarity   @default(COMMON)
   createdAt   DateTime     @default(now())
 
   purchases UserShopItem[]
 }
 
 enum ShopItemType {
-  TITLE    // neon title displayed in lobby, e.g. "Quest Master"
-  BUFF     // boost a friend's next quest XP
-  DEBUFF   // reduce an enemy's next quest XP
+  TITLE        // neon title displayed in lobby
+  BUFF         // boost a friend's XP
+  DEBUFF       // reduce an enemy's XP
+  XP_BOOST     // self-applied XP boost
+  QUEST_REROLL // reroll a daily quest
+  AVATAR_FRAME // decorative avatar frame
 }
 
 /// A user's purchased shop item instance
@@ -465,17 +474,104 @@ model ActiveEffect {
   casterId   String     // who cast it
   targetId   String     // who receives it
   expiresAt  DateTime   // effect duration
-  consumed   Boolean    @default(false)
   createdAt  DateTime   @default(now())
 
   caster User @relation("EffectCaster", fields: [casterId], references: [id], onDelete: Cascade)
   target User @relation("EffectTarget", fields: [targetId], references: [id], onDelete: Cascade)
 
-  @@index([targetId, consumed, expiresAt])
+  @@index([targetId, expiresAt])
   @@index([casterId])
 }
 
 enum EffectType {
   BUFF     // "Ивээх" — boost target's XP
   DEBUFF   // "Хараах" — reduce target's XP
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  8. DAILY CHECK-IN
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model DailyCheckIn {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  reward    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  9. ACHIEVEMENTS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model Achievement {
+  id          String          @id @default(cuid())
+  key         String          @unique
+  name        String
+  description String
+  iconEmoji   String
+  xpReward    Int             @default(0)
+  coinReward  Int             @default(0)
+  rarity      ItemRarity      @default(COMMON)
+  createdAt   DateTime        @default(now())
+
+  unlocks UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+enum ItemRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  10. NOTIFICATIONS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  userId    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt(sort: Desc)])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  11. TRIVIA BANK
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model TriviaBank {
+  id           String   @id @default(cuid())
+  question     String
+  options      String[]
+  correctIndex Int
+  category     String   @default("general")
+  difficulty   String   @default("MEDIUM")
+  createdAt    DateTime @default(now())
 }

@@ -93,6 +93,49 @@ export function useShop() {
   };
 }
 
+export function useCheckIn() {
+  const { data, error, isLoading, mutate } = useSWR("/api/checkin", fetcher, {
+    ...defaultConfig,
+    dedupingInterval: 30000,
+  });
+  return {
+    checkedInToday: data?.checkedInToday || false,
+    pendingReward: data?.pendingReward || 0,
+    todayReward: data?.todayReward || 0,
+    streak: data?.streak || 0,
+    nextMilestone: data?.nextMilestone,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function useNotifications() {
+  const { data, error, isLoading, mutate } = useSWR("/api/notifications", fetcher, {
+    ...defaultConfig,
+    refreshInterval: 30000,
+    dedupingInterval: 10000,
+  });
+  return {
+    notifications: data?.notifications || [],
+    unreadCount: data?.unreadCount || 0,
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function useAchievements() {
+  const { data, error, isLoading, mutate } = useSWR("/api/achievements", fetcher, defaultConfig);
+  return {
+    achievements: data?.achievements || [],
+    unlocked: data?.unlocked || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
 export function useLocations(lobbyId: string) {
   const { data, error, isLoading } = useSWR(
     lobbyId ? `/api/location?lobbyId=${lobbyId}` : null,

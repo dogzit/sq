@@ -7,16 +7,16 @@ import { cookies } from "next/headers";
 export async function POST(request: Request) {
   try {
     const { success } = rateLimitByIp(request, "reset-password", { maxRequests: 5, windowMs: 60_000 });
-    if (!success) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    if (!success) return NextResponse.json({ error: "Хэт олон оролдлого. Түр хүлээнэ үү." }, { status: 429 });
 
     const { email, code, newPassword } = await request.json();
 
     if (!email || !code || !newPassword) {
-      return NextResponse.json({ error: "Email, code, and new password required" }, { status: 400 });
+      return NextResponse.json({ error: "Имэйл, код, шинэ нууц үг шаардлагатай" }, { status: 400 });
     }
 
     if (newPassword.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+      return NextResponse.json({ error: "Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой" }, { status: 400 });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -65,6 +65,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Reset password error:", error);
-    return NextResponse.json({ error: "Password reset failed" }, { status: 500 });
+    return NextResponse.json({ error: "Нууц үг солих амжилтгүй боллоо" }, { status: 500 });
   }
 }

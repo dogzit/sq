@@ -115,7 +115,7 @@ export default function RootLayout({
         </ThemeProvider>
         <Toaster
           richColors
-          position="top-center"
+          position="top-right"
           toastOptions={{
             style: {
               borderRadius: "0.75rem",

@@ -10,12 +10,12 @@ function generateCode(): string {
 export async function POST(request: Request) {
   try {
     const { success } = rateLimitByIp(request, "otp-send", { maxRequests: 3, windowMs: 60_000 });
-    if (!success) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    if (!success) return NextResponse.json({ error: "Хэт олон оролдлого. Түр хүлээнэ үү." }, { status: 429 });
 
     const { email } = await request.json();
 
     if (!email) {
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
+      return NextResponse.json({ error: "Имэйл шаардлагатай" }, { status: 400 });
     }
 
     const code = generateCode();
@@ -30,7 +30,12 @@ export async function POST(request: Request) {
           expiresAt: new Date(Date.now() + 5 * 60 * 1000),
         },
       });
-      await sendOtpEmail(email, code);
+      console.log(`[OTP] ${email} → ${code}`);
+      try {
+        await sendOtpEmail(email, code);
+      } catch (emailErr) {
+        console.error("Email илгээж чадсангүй:", emailErr);
+      }
       return NextResponse.json({ sent: true });
     }
 
@@ -54,11 +59,16 @@ export async function POST(request: Request) {
       },
     });
 
-    await sendOtpEmail(email, code);
+    console.log(`[OTP] ${email} → ${code}`);
+    try {
+      await sendOtpEmail(email, code);
+    } catch (emailErr) {
+      console.error("Email илгээж чадсангүй:", emailErr);
+    }
 
     return NextResponse.json({ sent: true });
   } catch (error) {
     console.error("OTP send error:", error);
-    return NextResponse.json({ error: "Failed to send OTP" }, { status: 500 });
+    return NextResponse.json({ error: "Баталгаажуулах код илгээж чадсангүй" }, { status: 500 });
   }
 }

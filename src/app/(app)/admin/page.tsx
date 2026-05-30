@@ -47,14 +47,14 @@ export default function AdminPage() {
       });
       if (!res.ok) {
         const d = await res.json();
-        toast.error(d.error || "Delete failed");
+        toast.error(d.error || "Устгахад алдаа гарлаа");
         return;
       }
       toast.success("Амжилттай устгалаа");
       setConfirmDelete(null);
       loadData();
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     }
   }
 
@@ -66,14 +66,14 @@ export default function AdminPage() {
         body: JSON.stringify({ type: "user", id: userId, ...updates }),
       });
       if (!res.ok) {
-        toast.error("Update failed");
+        toast.error("Шинэчлэхэд алдаа гарлаа");
         return;
       }
       toast.success("Хэрэглэгч шинэчлэгдлээ");
       setEditingUser(null);
       loadData();
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     }
   }
 
@@ -85,13 +85,13 @@ export default function AdminPage() {
         body: JSON.stringify({ type: "quest", id: questId, status: "EXPIRED" }),
       });
       if (!res.ok) {
-        toast.error("Update failed");
+        toast.error("Шинэчлэхэд алдаа гарлаа");
         return;
       }
-      toast.success("Quest expired");
+      toast.success("Quest хугацаа дууслаа");
       loadData();
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     }
   }
 
@@ -108,7 +108,7 @@ export default function AdminPage() {
       });
       if (!res.ok) {
         const d = await res.json();
-        toast.error(d.error || "Save failed");
+        toast.error(d.error || "Хадгалахад алдаа гарлаа");
         return;
       }
       toast.success(item.id ? "Шинэчлэгдлээ" : "Үүсгэлээ");
@@ -116,7 +116,7 @@ export default function AdminPage() {
       setCreatingShop(false);
       loadData();
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     }
   }
 
@@ -126,13 +126,13 @@ export default function AdminPage() {
       const res = await fetch("/api/cron/daily-quests", { method: "POST" });
       const d = await res.json();
       if (!res.ok) {
-        toast.error(d.error || "Failed");
+        toast.error(d.error || "Quest үүсгэхэд алдаа гарлаа");
         return;
       }
       toast.success(`${d.generated} quest үүсгэлээ (${d.lobbies} lobby + global)`);
       loadData();
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     } finally {
       setGenerating(false);
     }
@@ -232,14 +232,14 @@ export default function AdminPage() {
               });
               if (!res.ok) {
                 const d = await res.json();
-                toast.error(d.error || "Failed");
+                toast.error(d.error || "Quest үүсгэхэд алдаа гарлаа");
                 return;
               }
               toast.success("Quest үүсгэлээ");
               setCreatingQuest(false);
               loadData();
             } catch {
-              toast.error("Network error");
+              toast.error("Сүлжээний алдаа гарлаа");
             }
           }}
         />

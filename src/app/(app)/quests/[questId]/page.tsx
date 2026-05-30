@@ -88,14 +88,14 @@ export default function QuestDetailPage() {
         if (data.pending) {
           toast.success("Илгээлээ! Lobby гишүүд vote хийхийг хүлээж байна.");
         } else {
-          toast.success(`Quest complete! +${data.submission.xpAwarded} XP`);
+          toast.success(`Quest биелэгдлээ! +${data.submission.xpAwarded} XP`);
         }
         loadSubmissions();
       } else {
-        toast.error(data.error || "Failed");
+        toast.error(data.error || "Илгээж чадсангүй");
       }
     } catch {
-      toast.error("Upload failed");
+      toast.error("Зураг илгээхэд алдаа гарлаа");
     } finally {
       setUploading(false);
     }
@@ -111,13 +111,13 @@ export default function QuestDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "Vote failed");
+        toast.error(data.error || "Саналаа өгөхөд алдаа гарлаа");
         return;
       }
-      toast.success(verdict === "APPROVE" ? "Approved!" : "Rejected");
+      toast.success(verdict === "APPROVE" ? "Зөвшөөрлөө!" : "Татгалзлаа!");
       loadSubmissions();
     } catch {
-      toast.error("Network error");
+      toast.error("Сүлжээний алдаа гарлаа");
     } finally {
       setVotingId(null);
     }

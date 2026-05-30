@@ -12,7 +12,7 @@ function generateCode(): string {
 export async function POST(request: Request) {
   try {
     const { success } = rateLimitByIp(request, "register", { maxRequests: 3, windowMs: 60_000 });
-    if (!success) return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    if (!success) return NextResponse.json({ error: "Хэт олон оролдлого. Түр хүлээнэ үү." }, { status: 429 });
 
     const body = await request.json();
     const parsed = registerSchema.safeParse(body);
@@ -21,13 +21,12 @@ export async function POST(request: Request) {
     }
     const { email, username, displayName, password } = parsed.data;
 
-    // Check if email/username already taken by a real user
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] },
     });
     if (existingUser) {
       return NextResponse.json(
-        { error: existingUser.email === email ? "Email already taken" : "Username already taken" },
+        { error: existingUser.email === email ? "Имэйл эсвэл хэрэглэгчийн нэр бүртгэлтэй байна" : "Хэрэглэгчийн нэр бүртгэлтэй байна" },
         { status: 409 }
       );
     }
@@ -35,7 +34,6 @@ export async function POST(request: Request) {
     const passwordHash = await hashPassword(password);
     const code = generateCode();
 
-    // Upsert into PendingSignup (overwrites previous attempt for same email)
     await prisma.pendingSignup.upsert({
       where: { email },
       update: {
@@ -55,14 +53,14 @@ export async function POST(request: Request) {
       },
     });
 
-    await sendOtpEmail(email, code);
+    console.log(`[OTP] ${email} → ${code}`);
+    sendOtpEmail(email, code).catch((err) =>
+      console.error("Email илгээж чадсангүй:", err)
+    );
 
-    return NextResponse.json({
-      needsVerification: true,
-      email,
-    });
+    return NextResponse.json({ needsVerification: true, email });
   } catch (error) {
     console.error("Register error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "Серверийн алдаа" }, { status: 500 });
   }
 }

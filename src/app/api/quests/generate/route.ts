@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { lobbyId, categoryId } = await request.json();
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   });
 
   if (templates.length === 0) {
-    return NextResponse.json({ error: "No templates found" }, { status: 404 });
+    return NextResponse.json({ error: "Template олдсонгүй" }, { status: 404 });
   }
 
   // Pick random templates (3 quests per day)

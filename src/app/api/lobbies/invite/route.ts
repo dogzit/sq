@@ -17,7 +17,7 @@ const respondSchema = z.object({
 // Send invite
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const body = await request.json();
   const parsed = inviteSchema.safeParse(body);
@@ -29,25 +29,25 @@ export async function POST(request: Request) {
   const member = await prisma.lobbyMember.findUnique({
     where: { userId_lobbyId: { userId: user.id, lobbyId } },
   });
-  if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
+  if (!member) return NextResponse.json({ error: "Гишүүн биш байна" }, { status: 403 });
 
   // Find target user
   const target = await prisma.user.findUnique({ where: { username } });
-  if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!target) return NextResponse.json({ error: "Хэрэглэгч олдсонгүй" }, { status: 404 });
 
-  if (target.id === user.id) return NextResponse.json({ error: "Cannot invite yourself" }, { status: 400 });
+  if (target.id === user.id) return NextResponse.json({ error: "Өөрийгөө урих боломжгүй" }, { status: 400 });
 
   // Check if already member
   const existingMember = await prisma.lobbyMember.findUnique({
     where: { userId_lobbyId: { userId: target.id, lobbyId } },
   });
-  if (existingMember) return NextResponse.json({ error: "Already a member" }, { status: 409 });
+  if (existingMember) return NextResponse.json({ error: "Аль хэдийн гишүүн байна" }, { status: 409 });
 
   // Check existing pending invite
   const existingInvite = await prisma.lobbyInvite.findFirst({
     where: { receiverId: target.id, lobbyId, status: "PENDING" },
   });
-  if (existingInvite) return NextResponse.json({ error: "Invite already sent" }, { status: 409 });
+  if (existingInvite) return NextResponse.json({ error: "Урилга аль хэдийн илгээсэн байна" }, { status: 409 });
 
   const invite = await prisma.lobbyInvite.create({
     data: {
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 // Respond to invite (accept/decline)
 export async function PUT(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const body = await request.json();
   const parsed = respondSchema.safeParse(body);
@@ -82,16 +82,16 @@ export async function PUT(request: Request) {
   });
 
   if (!invite || invite.receiverId !== user.id) {
-    return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+    return NextResponse.json({ error: "Урилга олдсонгүй" }, { status: 404 });
   }
 
   if (invite.status !== "PENDING") {
-    return NextResponse.json({ error: "Invite already responded" }, { status: 400 });
+    return NextResponse.json({ error: "Урилгад аль хэдийн хариулсан байна" }, { status: 400 });
   }
 
   if (invite.expiresAt < new Date()) {
     await prisma.lobbyInvite.update({ where: { id: inviteId }, data: { status: "EXPIRED" } });
-    return NextResponse.json({ error: "Invite expired" }, { status: 400 });
+    return NextResponse.json({ error: "Урилгын хугацаа дууссан байна" }, { status: 400 });
   }
 
   if (action === "decline") {
@@ -101,7 +101,7 @@ export async function PUT(request: Request) {
 
   // Accept
   if (invite.lobby._count.members >= invite.lobby.maxMembers) {
-    return NextResponse.json({ error: "Lobby is full" }, { status: 400 });
+    return NextResponse.json({ error: "Lobby дүүрсэн байна" }, { status: 400 });
   }
 
   await prisma.$transaction([
@@ -115,7 +115,7 @@ export async function PUT(request: Request) {
 // Get pending invites for current user
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const invites = await prisma.lobbyInvite.findMany({
     where: { receiverId: user.id, status: "PENDING", expiresAt: { gt: new Date() } },

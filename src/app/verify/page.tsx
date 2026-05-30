@@ -90,7 +90,7 @@ export default function VerifyPage() {
       toast.success("Баталгаажлаа!");
       router.push("/dashboard");
     } catch {
-      toast.error("Сүлжээний алдаа");
+      toast.error("Сүлжээний алдаа гарлаа");
     } finally {
       setLoading(false);
     }

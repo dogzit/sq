@@ -1,9 +1,11 @@
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 
-const secret = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback-secret-change-me"
-);
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret && process.env.NODE_ENV === "production") {
+  throw new Error("JWT_SECRET environment variable is required in production");
+}
+const secret = new TextEncoder().encode(jwtSecret || "fallback-secret-dev-only");
 
 export interface JWTPayload {
   userId: string;
@@ -58,6 +60,7 @@ export async function getCurrentUser() {
       coins: true,
       level: true,
       streak: true,
+      lastStreakDate: true,
     },
   });
 

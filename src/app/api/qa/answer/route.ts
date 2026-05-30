@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { answerSchema } from "@/lib/validations";
+import { checkAchievements } from "@/lib/achievements";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const body = await request.json();
   const parsed = answerSchema.safeParse(body);
@@ -17,12 +18,12 @@ export async function POST(request: Request) {
     include: { session: true },
   });
 
-  if (!question) return NextResponse.json({ error: "Question not found" }, { status: 404 });
+  if (!question) return NextResponse.json({ error: "Асуулт олдсонгүй" }, { status: 404 });
 
   const existing = await prisma.qAAnswer.findUnique({
     where: { userId_questionId: { userId: user.id, questionId } },
   });
-  if (existing) return NextResponse.json({ error: "Already answered" }, { status: 409 });
+  if (existing) return NextResponse.json({ error: "Аль хэдийн хариулсан байна" }, { status: 409 });
 
   const isCorrect = selectedIndex === question.correctIndex;
 
@@ -52,6 +53,18 @@ export async function POST(request: Request) {
       where: { id: user.id },
       data: { coins: { increment: coinsEarned } },
     });
+  }
+
+  // Check if all questions in session are answered — check for trivia perfect
+  const allAnswers = await prisma.qAAnswer.findMany({
+    where: { userId: user.id, question: { sessionId: question.sessionId } },
+  });
+  const totalQuestions = await prisma.qAQuestion.count({ where: { sessionId: question.sessionId } });
+  if (allAnswers.length === totalQuestions) {
+    const correctCount = allAnswers.filter((a) => a.isCorrect).length;
+    checkAchievements(user.id, {
+      triviaScore: { correct: correctCount, total: totalQuestions },
+    }).catch(() => {});
   }
 
   return NextResponse.json({

@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const secret = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback-secret-change-me"
+  process.env.JWT_SECRET || "fallback-secret-dev-only"
 );
 
 const publicPaths = [

@@ -1,13 +1,22 @@
-import "dotenv/config";
-import { neonConfig, Pool } from "@neondatabase/serverless";
+import { config } from "dotenv";
+import { resolve } from "path";
+config({ path: resolve(__dirname, "../.env") });
+
+import { neonConfig } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "../src/generated/prisma/client.js";
 import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaNeon(pool as any);
+let connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set");
+}
+// Strip channel_binding param — not supported by Neon serverless
+connectionString = connectionString.replace(/&?channel_binding=[^&]*/g, "").replace(/\?&/, "?");
+
+const adapter = new PrismaNeon({ connectionString });
 const prisma = new PrismaClient({ adapter } as any);
 
 async function main() {
@@ -107,37 +116,152 @@ async function main() {
   }
 
   // ──────────────────────────────────────────
-  // SHOP ITEMS
+  // SHOP ITEMS  (30+ items with rarity)
   // ──────────────────────────────────────────
   const shopItems = [
-    // Titles
-    { name: "Quest Master", description: "The legendary neon title for true questers", price: 500, itemType: "TITLE" as const, value: "Quest Master", iconEmoji: "👑" },
-    { name: "Shadow Walker", description: "A mysterious dark title", price: 400, itemType: "TITLE" as const, value: "Shadow Walker", iconEmoji: "🌑" },
-    { name: "Neon God", description: "The ultimate cyberpunk flex", price: 1000, itemType: "TITLE" as const, value: "Neon God", iconEmoji: "⚡" },
-    { name: "Pixel Warrior", description: "Old school gamer vibes", price: 300, itemType: "TITLE" as const, value: "Pixel Warrior", iconEmoji: "🎮" },
-    { name: "Meme Lord", description: "For the funniest in the lobby", price: 350, itemType: "TITLE" as const, value: "Meme Lord", iconEmoji: "😎" },
-    { name: "Trailblazer", description: "First to complete every quest", price: 600, itemType: "TITLE" as const, value: "Trailblazer", iconEmoji: "🔥" },
+    // ── Titles (COSMETIC) ──
+    { name: "Quest Master", description: "The legendary neon title for true questers", price: 500, itemType: "TITLE" as const, value: "Quest Master", iconEmoji: "👑", rarity: "RARE" as const },
+    { name: "Shadow Walker", description: "A mysterious dark title", price: 400, itemType: "TITLE" as const, value: "Shadow Walker", iconEmoji: "🌑", rarity: "RARE" as const },
+    { name: "Neon God", description: "The ultimate cyberpunk flex", price: 1000, itemType: "TITLE" as const, value: "Neon God", iconEmoji: "⚡", rarity: "LEGENDARY" as const },
+    { name: "Pixel Warrior", description: "Old school gamer vibes", price: 300, itemType: "TITLE" as const, value: "Pixel Warrior", iconEmoji: "🎮", rarity: "COMMON" as const },
+    { name: "Meme Lord", description: "For the funniest in the lobby", price: 350, itemType: "TITLE" as const, value: "Meme Lord", iconEmoji: "😎", rarity: "COMMON" as const },
+    { name: "Trailblazer", description: "First to complete every quest", price: 600, itemType: "TITLE" as const, value: "Trailblazer", iconEmoji: "🔥", rarity: "RARE" as const },
+    { name: "Night Owl", description: "For those who quest after midnight", price: 200, itemType: "TITLE" as const, value: "Night Owl", iconEmoji: "🦉", rarity: "COMMON" as const },
+    { name: "Speed Demon", description: "Fastest quest completer", price: 350, itemType: "TITLE" as const, value: "Speed Demon", iconEmoji: "💨", rarity: "COMMON" as const },
+    { name: "Social Butterfly", description: "Always connecting people", price: 300, itemType: "TITLE" as const, value: "Social Butterfly", iconEmoji: "🦋", rarity: "COMMON" as const },
+    { name: "Lone Wolf", description: "Solo quest legend", price: 450, itemType: "TITLE" as const, value: "Lone Wolf", iconEmoji: "🐺", rarity: "RARE" as const },
+    { name: "Puzzle Master", description: "Trivia and brain games champion", price: 500, itemType: "TITLE" as const, value: "Puzzle Master", iconEmoji: "🧩", rarity: "RARE" as const },
+    { name: "Iron Will", description: "Never breaks a streak", price: 600, itemType: "TITLE" as const, value: "Iron Will", iconEmoji: "🛡️", rarity: "EPIC" as const },
 
-    // Buffs
-    { name: "Ивээх (Bless)", description: "Grant a friend +25% XP on their next quest", price: 200, itemType: "BUFF" as const, value: "1.25", iconEmoji: "✨" },
-    { name: "Double Blessing", description: "Grant a friend +50% XP on their next quest", price: 450, itemType: "BUFF" as const, value: "1.50", iconEmoji: "🌟" },
+    // ── Buffs (target others) ──
+    { name: "Ивээх (Bless)", description: "Grant a friend +25% XP for 24 hours", price: 150, itemType: "BUFF" as const, value: "1.25", iconEmoji: "✨", rarity: "COMMON" as const },
+    { name: "Double Blessing", description: "Grant a friend +50% XP for 24 hours", price: 400, itemType: "BUFF" as const, value: "1.50", iconEmoji: "🌟", rarity: "RARE" as const },
+    { name: "Squad Boost", description: "Grant a friend +75% XP for 24 hours", price: 700, itemType: "BUFF" as const, value: "1.75", iconEmoji: "🚀", rarity: "EPIC" as const },
 
-    // Debuffs
-    { name: "Хараах (Curse)", description: "Reduce an enemy's next quest XP by 25%", price: 250, itemType: "DEBUFF" as const, value: "0.75", iconEmoji: "💀" },
-    { name: "Heavy Curse", description: "Reduce an enemy's next quest XP by 50%", price: 500, itemType: "DEBUFF" as const, value: "0.50", iconEmoji: "☠️" },
+    // ── Debuffs (target others) ──
+    { name: "Хараах (Curse)", description: "Reduce an enemy's XP by 25% for 24 hours", price: 180, itemType: "DEBUFF" as const, value: "0.75", iconEmoji: "💀", rarity: "COMMON" as const },
+    { name: "Heavy Curse", description: "Reduce an enemy's XP by 50% for 24 hours", price: 450, itemType: "DEBUFF" as const, value: "0.50", iconEmoji: "☠️", rarity: "RARE" as const },
+    { name: "Slow Down", description: "Reduce an enemy's XP by 15% for 24 hours", price: 100, itemType: "DEBUFF" as const, value: "0.85", iconEmoji: "🐌", rarity: "COMMON" as const },
+
+    // ── XP Boosts (self-buff) ──
+    { name: "Focus Mode", description: "Boost your own XP by +15% for 12 hours", price: 100, itemType: "XP_BOOST" as const, value: "1.15", iconEmoji: "🎯", rarity: "COMMON" as const },
+    { name: "Power Surge", description: "Boost your own XP by +30% for 24 hours", price: 300, itemType: "XP_BOOST" as const, value: "1.30", iconEmoji: "⚡", rarity: "RARE" as const },
+    { name: "Ascension", description: "Boost your own XP by +50% for 24 hours", price: 800, itemType: "XP_BOOST" as const, value: "1.50", iconEmoji: "🌈", rarity: "EPIC" as const },
+
+    // ── Quest Reroll ──
+    { name: "Quest Reroll", description: "Swap an unwanted daily quest for a new one", price: 150, itemType: "QUEST_REROLL" as const, value: "1", iconEmoji: "🔄", rarity: "COMMON" as const },
+    { name: "Golden Reroll", description: "Reroll and guarantee a HARD+ quest with bonus XP", price: 400, itemType: "QUEST_REROLL" as const, value: "hard", iconEmoji: "🎰", rarity: "RARE" as const },
+
+    // ── Avatar Frames ──
+    { name: "Neon Ring", description: "Glowing neon circle around your avatar", price: 200, itemType: "AVATAR_FRAME" as const, value: "neon-ring", iconEmoji: "💜", rarity: "COMMON" as const },
+    { name: "Fire Frame", description: "Burning flame border", price: 400, itemType: "AVATAR_FRAME" as const, value: "fire-frame", iconEmoji: "🔥", rarity: "RARE" as const },
+    { name: "Ice Crown", description: "Frosty ice crystal border", price: 500, itemType: "AVATAR_FRAME" as const, value: "ice-crown", iconEmoji: "❄️", rarity: "RARE" as const },
+    { name: "Galaxy Border", description: "Cosmic swirling galaxy effect", price: 800, itemType: "AVATAR_FRAME" as const, value: "galaxy-border", iconEmoji: "🌌", rarity: "EPIC" as const },
+    { name: "Dragon Frame", description: "Ancient dragon-scale border", price: 1200, itemType: "AVATAR_FRAME" as const, value: "dragon-frame", iconEmoji: "🐉", rarity: "LEGENDARY" as const },
   ];
 
   for (const item of shopItems) {
     await prisma.shopItem.upsert({
       where: { name: item.name },
-      update: {},
+      update: { price: item.price, rarity: item.rarity, description: item.description },
       create: item,
     });
   }
 
-  console.log(`✓ Seeded ${categories.length} categories`);
-  console.log(`✓ Seeded ${templates.length} quest templates`);
-  console.log(`✓ Seeded ${shopItems.length} shop items`);
+  // ──────────────────────────────────────────
+  // ACHIEVEMENTS
+  // ──────────────────────────────────────────
+  const achievements = [
+    { key: "first_quest", name: "First Steps", description: "Complete your first quest", iconEmoji: "🎯", coinReward: 50, rarity: "COMMON" as const },
+    { key: "streak_7", name: "Lucky Seven", description: "Maintain a 7-day streak", iconEmoji: "🔥", coinReward: 100, rarity: "COMMON" as const },
+    { key: "streak_30", name: "Month Warrior", description: "Maintain a 30-day streak", iconEmoji: "💎", coinReward: 500, rarity: "EPIC" as const },
+    { key: "social_3", name: "Social Butterfly", description: "Join 3 different lobbies", iconEmoji: "🦋", coinReward: 75, rarity: "COMMON" as const },
+    { key: "voter_10", name: "Voter", description: "Cast 10 votes on submissions", iconEmoji: "🗳️", coinReward: 50, rarity: "COMMON" as const },
+    { key: "voter_50", name: "Jury Duty", description: "Cast 50 votes on submissions", iconEmoji: "⚖️", coinReward: 200, rarity: "RARE" as const },
+    { key: "big_spender", name: "Big Spender", description: "Spend 1000 coins total in the shop", iconEmoji: "💰", coinReward: 100, rarity: "RARE" as const },
+    { key: "level_10", name: "Level 10", description: "Reach level 10", iconEmoji: "⭐", coinReward: 200, rarity: "RARE" as const },
+    { key: "emergency", name: "Emergency Hero", description: "Complete an emergency quest", iconEmoji: "🚨", coinReward: 150, rarity: "RARE" as const },
+    { key: "trivia_perfect", name: "Trivia King", description: "Get 100% on a trivia game", iconEmoji: "🧠", coinReward: 100, rarity: "RARE" as const },
+  ];
+
+  for (const ach of achievements) {
+    await prisma.achievement.upsert({
+      where: { key: ach.key },
+      update: {},
+      create: ach,
+    });
+  }
+
+  // ──────────────────────────────────────────
+  // TRIVIA BANK
+  // ──────────────────────────────────────────
+  const triviaQuestions = [
+    // Ерөнхий мэдлэг
+    { question: "Дэлхийн хамгийн өндөр уул юу вэ?", options: ["K2", "Everest", "Kangchenjunga", "Lhotse"], correctIndex: 1, category: "general" },
+    { question: "Нарны аймгийн хамгийн том гараг юу вэ?", options: ["Saturn", "Jupiter", "Neptune", "Uranus"], correctIndex: 1, category: "general" },
+    { question: "Монгол улсын нийслэл юу вэ?", options: ["Дархан", "Эрдэнэт", "Улаанбаатар", "Чойбалсан"], correctIndex: 2, category: "mongolia" },
+    { question: "Усны химийн томъёо юу вэ?", options: ["CO2", "H2O", "O2", "NaCl"], correctIndex: 1, category: "general" },
+    { question: "1 км = хэдэн метр?", options: ["100", "500", "1000", "10000"], correctIndex: 2, category: "general" },
+    { question: "Дэлхийн хамгийн том далай юу вэ?", options: ["Атлантик", "Номхон", "Энэтхэг", "Хойд мөсөн"], correctIndex: 1, category: "general" },
+    { question: "Хүний биед хэдэн яс байдаг вэ?", options: ["106", "206", "306", "156"], correctIndex: 1, category: "general" },
+    { question: "Нар дэлхийгээс хэдэн гэрлийн минутын зайтай вэ?", options: ["4", "8", "12", "20"], correctIndex: 1, category: "general" },
+    { question: "Дэлхийн хамгийн урт гол юу вэ?", options: ["Амазон", "Нил", "Миссисипи", "Янцзы"], correctIndex: 1, category: "general" },
+    { question: "Хүний биеийн хэдэн хувь нь ус вэ?", options: ["40%", "50%", "60%", "70%"], correctIndex: 2, category: "general" },
+    { question: "Алмаз ямар элементээс бүтдэг вэ?", options: ["Төмөр", "Нүүрстөрөгч", "Кальци", "Цахиур"], correctIndex: 1, category: "general" },
+    { question: "Монголын хамгийн урт гол юу вэ?", options: ["Туул", "Орхон", "Сэлэнгэ", "Херлэн"], correctIndex: 3, category: "mongolia" },
+    { question: "Дэлхий дээр хэдэн тив байдаг вэ?", options: ["5", "6", "7", "8"], correctIndex: 2, category: "general" },
+    { question: "Хамгийн хурдан амьтан юу вэ?", options: ["Арслан", "Цагаан барс", "Шонхор", "Гепард"], correctIndex: 2, category: "general" },
+    { question: "Дэлхийн хүн амын хэдэн хувь нь Ази тивд амьдардаг вэ?", options: ["30%", "45%", "60%", "75%"], correctIndex: 2, category: "general" },
+    { question: "Марс гаргийн өнгө юу вэ?", options: ["Цэнхэр", "Шар", "Улаан", "Ногоон"], correctIndex: 2, category: "general" },
+    { question: "Далайн ус яагаад давстай байдаг вэ?", options: ["Загаснаас", "Голын эрдсээс", "Нарнаас", "Агаараас"], correctIndex: 1, category: "general" },
+    { question: "Египтийн Пирамидыг хэдэн жилийн өмнө барьсан бэ?", options: ["2000", "3000", "4500", "6000"], correctIndex: 2, category: "general" },
+    { question: "Дэлхий нарыг хэдэн хоногт тойрдог вэ?", options: ["360", "365", "370", "355"], correctIndex: 1, category: "general" },
+    // Технологи
+    { question: "HTML гэдэг юуны товчлол вэ?", options: ["HyperText Markup Language", "High Tech ML", "Home Tool ML", "HyperTransfer ML"], correctIndex: 0, category: "tech" },
+    { question: "JavaScript-ийг хэн зохиосон бэ?", options: ["Guido van Rossum", "James Gosling", "Brendan Eich", "Dennis Ritchie"], correctIndex: 2, category: "tech" },
+    { question: "React-ийг аль компани хөгжүүлсэн бэ?", options: ["Google", "Apple", "Facebook", "Microsoft"], correctIndex: 2, category: "tech" },
+    { question: "CSS гэдэг юуны товчлол вэ?", options: ["Computer Style Sheets", "Cascading Style Sheets", "Creative Style System", "Coded Style Sheets"], correctIndex: 1, category: "tech" },
+    { question: "Python хэлийг хэн зохиосон бэ?", options: ["Guido van Rossum", "Linus Torvalds", "Tim Berners-Lee", "James Gosling"], correctIndex: 0, category: "tech" },
+    { question: "Интернэтийг хэдэн онд зохион бүтээсэн бэ?", options: ["1969", "1975", "1983", "1991"], correctIndex: 0, category: "tech" },
+    { question: "Git-ийг хэн зохиосон бэ?", options: ["Bill Gates", "Linus Torvalds", "Steve Jobs", "Mark Zuckerberg"], correctIndex: 1, category: "tech" },
+    { question: "SQL гэдэг юуны товчлол вэ?", options: ["Structured Query Language", "Simple Question Language", "System Query Logic", "Standard Query Line"], correctIndex: 0, category: "tech" },
+    { question: "Хамгийн анхны компьютер аль нь вэ?", options: ["IBM PC", "Apple I", "ENIAC", "Commodore 64"], correctIndex: 2, category: "tech" },
+    { question: "1 байт = хэдэн бит?", options: ["4", "8", "16", "32"], correctIndex: 1, category: "tech" },
+    { question: "Linux-ийн маскот амьтан юу вэ?", options: ["Нохой", "Оцон шувуу", "Муур", "Арслан"], correctIndex: 1, category: "tech" },
+    { question: "TypeScript-ийг аль компани хөгжүүлсэн бэ?", options: ["Google", "Facebook", "Microsoft", "Amazon"], correctIndex: 2, category: "tech" },
+    { question: "HTTP гэдэг юуны товчлол вэ?", options: ["HyperText Transfer Protocol", "High Tech Transfer Protocol", "Home Transfer Program", "Hybrid Text Protocol"], correctIndex: 0, category: "tech" },
+    { question: "API гэдэг юуны товчлол вэ?", options: ["Application Programming Interface", "Advanced Protocol Integration", "Auto Program Input", "App Process Integration"], correctIndex: 0, category: "tech" },
+    { question: "GitHub-ийг аль компани худалдаж авсан бэ?", options: ["Google", "Amazon", "Microsoft", "Apple"], correctIndex: 2, category: "tech" },
+    // Монгол
+    { question: "Чингис хаан хэдэн онд төрсөн бэ?", options: ["1142", "1162", "1182", "1202"], correctIndex: 1, category: "mongolia" },
+    { question: "Монгол улсын талбай хэдэн мянган км²?", options: ["1064", "1267", "1564", "1867"], correctIndex: 2, category: "mongolia" },
+    { question: "Монголын хамгийн өндөр уул юу вэ?", options: ["Отгонтэнгэр", "Хүйтэн", "Мөнх Хайрхан", "Тавн Богд"], correctIndex: 1, category: "mongolia" },
+    { question: "Монгол бичгийг хэн зохиосон бэ?", options: ["Тататунга", "Занабазар", "Бямбын Ринчен", "Чойжинжав"], correctIndex: 0, category: "mongolia" },
+    { question: "Монголын төгрөгний валютын код юу вэ?", options: ["MON", "MGL", "MNT", "MGT"], correctIndex: 2, category: "mongolia" },
+    { question: "Монгол улсад хэдэн аймаг байдаг вэ?", options: ["18", "19", "21", "23"], correctIndex: 2, category: "mongolia" },
+    { question: "Наадмын хэдэн нэрт тоглоом байдаг вэ?", options: ["2", "3", "4", "5"], correctIndex: 1, category: "mongolia" },
+    { question: "Монголын хамгийн том нуур юу вэ?", options: ["Хөвсгөл", "Увс", "Хяргас", "Буйр"], correctIndex: 1, category: "mongolia" },
+    { question: "Монгол улс хэдэн онд тусгаар тогтносон бэ?", options: ["1911", "1921", "1924", "1945"], correctIndex: 0, category: "mongolia" },
+    { question: "Хөвсгөл нуур дэлхийд хэддүгээр том цэвэр усны нуур вэ?", options: ["2", "5", "8", "14"], correctIndex: 0, category: "mongolia" },
+    // Поп соёл
+    { question: "Harry Potter-ийн зохиогч хэн бэ?", options: ["Stephen King", "J.R.R. Tolkien", "J.K. Rowling", "George R.R. Martin"], correctIndex: 2, category: "pop_culture" },
+    { question: "Marvel-ийн Тор аль улсын домогт гардаг вэ?", options: ["Грек", "Египт", "Хойд Европ", "Япон"], correctIndex: 2, category: "pop_culture" },
+    { question: "Mario тоглоомын дүрийн мэргэжил юу вэ?", options: ["Барилгачин", "Сантехникч", "Цагдаа", "Тогооч"], correctIndex: 1, category: "pop_culture" },
+    { question: "Spotify хэдэн онд үүссэн бэ?", options: ["2004", "2006", "2008", "2010"], correctIndex: 1, category: "pop_culture" },
+    { question: "Tesla компанийг хэн үүсгэн байгуулсан бэ?", options: ["Elon Musk", "Martin Eberhard", "Jeff Bezos", "Steve Wozniak"], correctIndex: 1, category: "pop_culture" },
+  ];
+
+  // Clear and re-seed trivia
+  await prisma.triviaBank.deleteMany({});
+  for (const q of triviaQuestions) {
+    await prisma.triviaBank.create({ data: q });
+  }
+
+  console.log(`Seeded ${categories.length} categories`);
+  console.log(`Seeded ${templates.length} quest templates`);
+  console.log(`Seeded ${shopItems.length} shop items`);
+  console.log(`Seeded ${achievements.length} achievements`);
+  console.log(`Seeded ${triviaQuestions.length} trivia questions`);
 }
 
 main()

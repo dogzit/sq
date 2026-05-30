@@ -3,11 +3,12 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { uploadToImgbb } from "@/lib/imgur";
 import { submissionSchema } from "@/lib/validations";
-import { calculateLevel } from "@/lib/utils";
+import { awardQuestXP } from "@/lib/economy";
+import { notifyLobbyMembers } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const body = await request.json();
   const parsed = submissionSchema.safeParse(body);
@@ -18,14 +19,14 @@ export async function POST(request: Request) {
 
   const quest = await prisma.quest.findUnique({ where: { id: questId } });
   if (!quest || quest.status !== "ACTIVE") {
-    return NextResponse.json({ error: "Quest not available" }, { status: 404 });
+    return NextResponse.json({ error: "Quest олдсонгүй" }, { status: 404 });
   }
 
   const existing = await prisma.questSubmission.findUnique({
     where: { userId_questId: { userId: user.id, questId } },
   });
   if (existing) {
-    return NextResponse.json({ error: "Already submitted" }, { status: 409 });
+    return NextResponse.json({ error: "Аль хэдийн илгээсэн байна" }, { status: 409 });
   }
 
   // Upload to imgbb
@@ -46,71 +47,53 @@ export async function POST(request: Request) {
         questId,
       },
     });
+    // Notify lobby members to vote
+    if (quest.lobbyId) {
+      notifyLobbyMembers({
+        lobbyId: quest.lobbyId,
+        excludeUserId: user.id,
+        type: "vote_needed",
+        title: "Vote хэрэгтэй!",
+        body: `${user.displayName} "${quest.title}" quest-д submission илгээлээ`,
+        metadata: { questId, submissionId: submission.id },
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ submission, pending: true }, { status: 201 });
   }
 
   // Global quest: auto-approve with XP
-  let multiplier = 1.0;
-
-  const effects = await prisma.activeEffect.findMany({
-    where: { targetId: user.id, consumed: false, expiresAt: { gt: new Date() } },
+  const { xpAwarded, coinsAwarded } = await awardQuestXP({
+    userId: user.id,
+    questId,
+    questXpReward: quest.xpReward,
+    questDifficulty: quest.difficulty,
+    lobbyId: quest.lobbyId,
   });
-  for (const effect of effects) {
-    multiplier *= effect.multiplier;
-    await prisma.activeEffect.update({ where: { id: effect.id }, data: { consumed: true } });
-  }
 
-  const xpAwarded = Math.round(quest.xpReward * multiplier);
-  const coinsAwarded = Math.round(quest.xpReward * 0.2 * multiplier);
-  const newXp = user.xp + xpAwarded;
-
-  const [submission] = await prisma.$transaction([
-    prisma.questSubmission.create({
-      data: {
-        photoUrl: url,
-        caption,
-        vetoStatus: "APPROVED",
-        xpAwarded,
-        coinsAwarded,
-        userId: user.id,
-        questId,
-      },
-    }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: {
-        xp: newXp,
-        coins: { increment: coinsAwarded },
-        level: calculateLevel(newXp),
-        streak: { increment: 1 },
-      },
-    }),
-    prisma.userLocation.upsert({
-      where: { userId: user.id },
-      update: { visibleUntil: new Date(Date.now() + 60 * 60 * 1000) },
-      create: {
-        userId: user.id,
-        latitude: 0,
-        longitude: 0,
-        visibleUntil: new Date(Date.now() + 60 * 60 * 1000),
-      },
-    }),
-  ]);
+  const submission = await prisma.questSubmission.create({
+    data: {
+      photoUrl: url,
+      caption,
+      vetoStatus: "APPROVED",
+      xpAwarded,
+      coinsAwarded,
+      userId: user.id,
+      questId,
+    },
+  });
 
   return NextResponse.json({ submission: { ...submission, xpAwarded, coinsAwarded } }, { status: 201 });
 }
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const questId = searchParams.get("questId");
 
   // Auto-resolve expired PENDING submissions (3hr deadline passed)
-  // - No votes at all → 40% XP
-  // - Some approves but <50% threshold → 50% XP
-  // - Majority reject → 0 XP
   const expiredPending = await prisma.questSubmission.findMany({
     where: {
       vetoStatus: "PENDING",
@@ -125,11 +108,9 @@ export async function GET(request: Request) {
 
     if (sub.approveCount + sub.rejectCount > 0) {
       if (sub.rejectCount > sub.approveCount) {
-        // Majority reject → 0%
-        xpPercent = 0;
+        xpPercent = 0; // Majority reject → 0%
       } else {
-        // Some approves but didn't hit 50% threshold → 50%
-        xpPercent = 0.5;
+        xpPercent = 0.5; // Some approves but didn't hit threshold → 50%
       }
     }
 
@@ -141,30 +122,19 @@ export async function GET(request: Request) {
       continue;
     }
 
-    let multiplier = xpPercent;
-    const effects = await prisma.activeEffect.findMany({
-      where: { targetId: sub.userId, consumed: false, expiresAt: { gt: new Date() } },
+    const { xpAwarded, coinsAwarded } = await awardQuestXP({
+      userId: sub.userId,
+      questId: sub.questId,
+      questXpReward: sub.quest.xpReward,
+      questDifficulty: sub.quest.difficulty,
+      lobbyId: sub.quest.lobbyId,
+      xpPercentage: xpPercent,
     });
-    for (const effect of effects) {
-      multiplier *= effect.multiplier;
-      await prisma.activeEffect.update({ where: { id: effect.id }, data: { consumed: true } });
-    }
-    const xp = Math.round(sub.quest.xpReward * multiplier);
-    const coins = Math.round(sub.quest.xpReward * 0.2 * multiplier);
-    const submitter = await prisma.user.findUnique({ where: { id: sub.userId } });
-    if (submitter) {
-      const newXp = submitter.xp + xp;
-      await prisma.$transaction([
-        prisma.questSubmission.update({
-          where: { id: sub.id },
-          data: { vetoStatus: "APPROVED", xpAwarded: xp, coinsAwarded: coins },
-        }),
-        prisma.user.update({
-          where: { id: sub.userId },
-          data: { xp: newXp, coins: { increment: coins }, level: calculateLevel(newXp), streak: { increment: 1 } },
-        }),
-      ]);
-    }
+
+    await prisma.questSubmission.update({
+      where: { id: sub.id },
+      data: { vetoStatus: "APPROVED", xpAwarded, coinsAwarded },
+    });
   }
 
   const submissions = await prisma.questSubmission.findMany({

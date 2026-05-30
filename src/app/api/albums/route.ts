@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const albums = await prisma.album.findMany({
     where: { userId: user.id },
@@ -29,12 +29,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
   const { title, submissionIds } = await request.json();
 
   if (!title || !submissionIds?.length) {
-    return NextResponse.json({ error: "Title and submissions required" }, { status: 400 });
+    return NextResponse.json({ error: "Гарчиг болон зургууд шаардлагатай" }, { status: 400 });
   }
 
   const album = await prisma.album.create({
