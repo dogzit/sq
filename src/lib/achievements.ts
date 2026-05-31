@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { calculateLevel } from "@/lib/economy";
 
 /** Check and award achievements for a user after an action */
 export async function checkAchievements(userId: string, context: {
@@ -9,6 +10,7 @@ export async function checkAchievements(userId: string, context: {
   coinsSpent?: number;
   newLevel?: number;
   newStreak?: number;
+  profileCompleted?: boolean;
 }) {
   const unlocked: string[] = [];
 
@@ -28,18 +30,26 @@ export async function checkAchievements(userId: string, context: {
     const ach = achievementMap.get(key);
     if (!ach || unlockedIds.has(ach.id)) return;
 
-    await prisma.$transaction([
-      prisma.userAchievement.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.userAchievement.create({
         data: { userId, achievementId: ach.id },
-      }),
-      ...(ach.coinReward > 0
-        ? [prisma.user.update({
-            where: { id: userId },
-            data: { coins: { increment: ach.coinReward } },
-          })]
-        : []),
-    ]);
-
+      });
+      if (ach.xpReward > 0 || ach.coinReward > 0) {
+        const userBefore = await tx.user.findUnique({
+          where: { id: userId },
+          select: { xp: true },
+        });
+        const newXp = (userBefore?.xp ?? 0) + ach.xpReward;
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            ...(ach.xpReward > 0 && { xp: newXp, level: calculateLevel(newXp) }),
+            ...(ach.coinReward > 0 && { coins: { increment: ach.coinReward } }),
+          },
+        });
+      }
+    });
+    unlockedIds.add(ach.id);
     unlocked.push(key);
   }
 
@@ -89,6 +99,11 @@ export async function checkAchievements(userId: string, context: {
     });
     const spent = totalSpent.reduce((sum, p) => sum + p.item.price, 0);
     if (spent >= 1000) await tryUnlock("big_spender");
+  }
+
+  // Profile completed
+  if (context.profileCompleted) {
+    await tryUnlock("profile_complete");
   }
 
   return unlocked;

@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { toast } from "sonner";
+import { useUser } from "@/lib/swr";
 
 interface AdminData {
   stats: { userCount: number; lobbyCount: number; questCount: number; submissionCount: number; shopItemCount: number; pendingTriviaCount: number };
@@ -17,6 +19,8 @@ interface AdminData {
 type Tab = "users" | "quests" | "shop" | "lobbies";
 
 export default function AdminPage() {
+  const router = useRouter();
+  const { user, isLoading: userLoading } = useUser();
   const [data, setData] = useState<AdminData | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("users");
@@ -27,17 +31,42 @@ export default function AdminPage() {
   const [confirmDelete, setConfirmDelete] = useState<{ type: string; id: string; name: string } | null>(null);
   const [generating, setGenerating] = useState(false);
 
-  const loadData = useCallback(() => {
-    fetch("/api/admin")
-      .then((r) => {
-        if (r.status === 403) throw new Error("Access denied");
-        return r.json();
-      })
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, []);
+  const loadData = useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin");
+      if (r.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (r.status === 403) {
+        setError("Access denied");
+        return;
+      }
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        setError(body.error || `HTTP ${r.status}`);
+        return;
+      }
+      const json = await r.json();
+      setData(json);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Сүлжээний алдаа");
+    }
+  }, [router]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    if (userLoading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (!user.isAdmin) {
+      setError("Access denied");
+      return;
+    }
+    loadData();
+  }, [user, userLoading, loadData, router]);
 
   async function handleDelete(type: string, id: string) {
     try {
@@ -124,30 +153,54 @@ export default function AdminPage() {
   async function handleGenerateQuests() {
     setGenerating(true);
     try {
-      const res = await fetch("/api/cron/daily-quests", { method: "POST" });
-      const d = await res.json();
+      const res = await fetch("/api/cron/ai-daily-quests", { method: "POST" });
+      const d = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(d.error || "Quest үүсгэхэд алдаа гарлаа");
+        toast.error(d.error || `Quest үүсгэхэд алдаа: HTTP ${res.status}`);
         return;
       }
-      toast.success(`${d.generated} quest үүсгэлээ (${d.lobbies} lobby + global)`);
+      if (d.lobbies === 0) {
+        toast.error("Идэвхтэй lobby алга");
+        return;
+      }
+      if (d.inserted === 0) {
+        toast.error(
+          "AI quest үүсгэж чадсангүй (Gemini quota дууссан байж магадгүй)",
+        );
+        return;
+      }
+      const expected = (d.lobbies ?? 0) * (d.requestedPerLobby ?? 0);
+      if (expected > 0 && d.inserted < expected) {
+        toast.warning(
+          `${d.inserted}/${expected} AI quest үүсгэлээ — заримд нь алдаа гарсан`,
+        );
+      } else {
+        toast.success(`${d.inserted} AI quest үүсгэлээ (${d.lobbies} lobby)`);
+      }
       loadData();
-    } catch {
-      toast.error("Сүлжээний алдаа гарлаа");
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Сүлжээний алдаа гарлаа",
+      );
     } finally {
       setGenerating(false);
     }
   }
 
   if (error) {
+    const isAccessDenied = error === "Access denied";
     return (
       <>
         <TopBar title="Admin" showBack />
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="game-card p-8 text-center max-w-sm">
-            <div className="text-4xl mb-3">🔒</div>
-            <h2 className="font-display text-lg font-bold mb-1">Access Denied</h2>
-            <p className="text-sm text-muted-foreground">You don&apos;t have admin privileges.</p>
+            <div className="text-4xl mb-3">{isAccessDenied ? "🔒" : "⚠️"}</div>
+            <h2 className="font-display text-lg font-bold mb-1">
+              {isAccessDenied ? "Access Denied" : "Алдаа гарлаа"}
+            </h2>
+            <p className="text-sm text-muted-foreground break-words">
+              {isAccessDenied ? "You don't have admin privileges." : error}
+            </p>
           </div>
         </div>
       </>
@@ -372,11 +425,15 @@ export default function AdminPage() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-semibold truncate flex-1">{q.title}</span>
                       <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                        <span className="pill bg-neon-gold/10 text-neon-gold">{q.xpReward} XP</span>
+                        <span className="pill bg-neon-gold/10 text-neon-gold">⚡ {q.xpReward}</span>
+                        <span className="pill bg-neon-pink/10 text-neon-pink">🪙 {q.coinReward}</span>
                       </div>
                     </div>
                     <div className="text-xs text-muted-foreground mb-2">
-                      {q.lobby?.name || "Global"} · {q.difficulty} · {q.questType} · {q._count.submissions} submissions
+                      {q.lobby?.name ?? "—"} · {q.difficulty} · {q.questType}
+                      {q.bonusClass && ` · ${q.bonusClass}`}
+                      {q.isAiGenerated && " · AI"}
+                      {" · "}{q._count.submissions} submissions
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => handleExpireQuest(q.id)} className="text-xs py-1.5 px-3 rounded-lg bg-neon-orange/10 text-neon-orange font-medium hover:bg-neon-orange/20 transition-colors">
@@ -589,9 +646,11 @@ function QuestCreateModal({ lobbies, onClose, onSave }: { lobbies: any[]; onClos
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [xpReward, setXpReward] = useState("50");
+  const [coinReward, setCoinReward] = useState("10");
   const [difficulty, setDifficulty] = useState("MEDIUM");
   const [questType, setQuestType] = useState("DAILY");
-  const [lobbyId, setLobbyId] = useState("");
+  const [lobbyId, setLobbyId] = useState(lobbies[0]?.id ?? "");
+  const [bonusClass, setBonusClass] = useState("NONE");
   const [expiresInHours, setExpiresInHours] = useState("24");
 
   return (
@@ -610,16 +669,21 @@ function QuestCreateModal({ lobbies, onClose, onSave }: { lobbies: any[]; onClos
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Quest description" rows={3}
               className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all resize-none" />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">XP</label>
+              <label className="text-xs font-medium text-muted-foreground">⚡ XP</label>
               <input type="number" value={xpReward} onChange={(e) => setXpReward(e.target.value)}
-                className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
+                className="w-full bg-secondary border border-border rounded-xl px-3 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Хугацаа (цаг)</label>
+              <label className="text-xs font-medium text-muted-foreground">🪙 Coin</label>
+              <input type="number" value={coinReward} onChange={(e) => setCoinReward(e.target.value)}
+                className="w-full bg-secondary border border-border rounded-xl px-3 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">⏱ Цаг</label>
               <input type="number" value={expiresInHours} onChange={(e) => setExpiresInHours(e.target.value)}
-                className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
+                className="w-full bg-secondary border border-border rounded-xl px-3 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -643,10 +707,20 @@ function QuestCreateModal({ lobbies, onClose, onSave }: { lobbies: any[]; onClos
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Lobby (сонголтгүй бол global)</label>
+            <label className="text-xs font-medium text-muted-foreground">Bonus class (+25% XP тухайн класст)</label>
+            <select value={bonusClass} onChange={(e) => setBonusClass(e.target.value)}
+              className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all">
+              <option value="NONE">Bonus байхгүй</option>
+              <option value="TANK">TANK</option>
+              <option value="MAGE">MAGE</option>
+              <option value="CLOWN">CLOWN</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Lobby</label>
             <select value={lobbyId} onChange={(e) => setLobbyId(e.target.value)}
               className="w-full bg-secondary border border-border rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 transition-all">
-              <option value="">Global (бүх хэрэглэгч)</option>
+              {lobbies.length === 0 && <option value="">— Lobby алга —</option>}
               {lobbies.map((l: any) => (
                 <option key={l.id} value={l.id}>{l.name}</option>
               ))}
@@ -657,8 +731,20 @@ function QuestCreateModal({ lobbies, onClose, onSave }: { lobbies: any[]; onClos
         <div className="flex gap-2">
           <button onClick={onClose} className="btn-game-outline flex-1 text-sm">Цуцлах</button>
           <button
-            onClick={() => onSave({ title, description, xpReward: Number(xpReward), difficulty, questType, lobbyId: lobbyId || undefined, expiresInHours: Number(expiresInHours) })}
-            disabled={!title || !description}
+            onClick={() =>
+              onSave({
+                title,
+                description,
+                xpReward: Number(xpReward),
+                coinReward: Number(coinReward),
+                difficulty,
+                questType,
+                lobbyId,
+                bonusClass,
+                expiresInHours: Number(expiresInHours),
+              })
+            }
+            disabled={!title || !description || !lobbyId}
             className="btn-game flex-1 text-sm"
           >
             Үүсгэх

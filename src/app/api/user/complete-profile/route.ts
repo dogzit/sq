@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { checkAchievements } from "@/lib/achievements";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -12,6 +13,13 @@ export async function POST(req: NextRequest) {
   if (!birthDate || !Array.isArray(interests)) {
     return NextResponse.json({ error: "Шаардлагатай талбарууд дутуу байна" }, { status: 400 });
   }
+
+  const wasComplete = (
+    await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { isProfileComplete: true },
+    })
+  )?.isProfileComplete;
 
   const updated = await prisma.user.update({
     where: { id: user.id },
@@ -32,5 +40,10 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(updated);
+  // Anх удаа profile бүрэн бөглөсөн тохиолдолд achievement шалгана
+  const unlocked = !wasComplete
+    ? await checkAchievements(user.id, { profileCompleted: true })
+    : [];
+
+  return NextResponse.json({ ...updated, unlockedAchievements: unlocked });
 }

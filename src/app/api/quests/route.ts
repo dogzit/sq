@@ -20,9 +20,6 @@ export async function GET(request: Request) {
         where: { userId: user.id },
         select: { id: true, vetoStatus: true, mediaUrl: true, mediaType: true },
       },
-      template: {
-        include: { category: true },
-      },
       _count: { select: { submissions: true } },
     },
     orderBy: { expiresAt: "asc" },

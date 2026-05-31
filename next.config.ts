@@ -2,7 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  turbopack: {},
+  turbopack: {
+    resolveAlias: {
+      "@mediapipe/pose": "./src/lib/mediapipe-pose-stub.ts",
+    },
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "i.ibb.co" },

@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { updateStreak, dailyCheckInReward } from "@/lib/economy";
+import {
+  updateStreak,
+  dailyCheckInReward,
+  dailyCheckInXpReward,
+  calculateLevel,
+} from "@/lib/economy";
 
 export async function POST() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
-  // Get full user with streak data
+  // Get full user with streak + xp data
   const fullUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { streak: true, lastStreakDate: true },
+    select: { streak: true, lastStreakDate: true, xp: true },
   });
   if (!fullUser) return NextResponse.json({ error: "Хэрэглэгч олдсонгүй" }, { status: 404 });
 
@@ -36,18 +41,23 @@ export async function POST() {
   // Update streak
   const { newStreak, lastStreakDate } = updateStreak(fullUser.streak, fullUser.lastStreakDate);
 
-  // Calculate reward
+  // Calculate rewards (coin + xp)
   const reward = dailyCheckInReward(newStreak);
+  const xpReward = dailyCheckInXpReward(newStreak);
+  const newXp = fullUser.xp + xpReward;
+  const newLevel = calculateLevel(newXp);
 
   // Save check-in and update user in transaction
   await prisma.$transaction([
     prisma.dailyCheckIn.create({
-      data: { userId: user.id, date: today, reward },
+      data: { userId: user.id, date: today, reward, xpReward },
     }),
     prisma.user.update({
       where: { id: user.id },
       data: {
         coins: { increment: reward },
+        xp: newXp,
+        level: newLevel,
         streak: newStreak,
         lastStreakDate,
       },
@@ -56,6 +66,9 @@ export async function POST() {
 
   return NextResponse.json({
     reward,
+    xpReward,
+    newXp,
+    newLevel,
     streak: newStreak,
     nextMilestone: [7, 14, 21, 28].find((m) => m > newStreak) || null,
   }, { status: 201 });
@@ -83,15 +96,18 @@ export async function GET(request: Request) {
   });
 
   const currentStreak = fullUser?.streak || 0;
-  const pendingReward = todayCheckIn ? 0 : dailyCheckInReward(
-    // Preview what streak would be after check-in
-    updateStreak(currentStreak, fullUser?.lastStreakDate || null).newStreak
-  );
+  const previewStreak = todayCheckIn
+    ? currentStreak
+    : updateStreak(currentStreak, fullUser?.lastStreakDate || null).newStreak;
+  const pendingReward = todayCheckIn ? 0 : dailyCheckInReward(previewStreak);
+  const pendingXpReward = todayCheckIn ? 0 : dailyCheckInXpReward(previewStreak);
 
   return NextResponse.json({
     checkedInToday: !!todayCheckIn,
     todayReward: todayCheckIn?.reward || 0,
+    todayXpReward: todayCheckIn?.xpReward || 0,
     pendingReward,
+    pendingXpReward,
     streak: currentStreak,
     nextMilestone: [7, 14, 21, 28].find((m) => m > currentStreak) || null,
   });

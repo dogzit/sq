@@ -39,6 +39,8 @@ model User {
   isProfileComplete Boolean   @default(false)
   isSafeMode        Boolean   @default(false)
   safeModeExpires   DateTime?
+  lastPushupAt      DateTime?
+  pushupTotalReps   Int       @default(0)
   updatedAt         DateTime  @updatedAt
 
   // ── Relations ──
@@ -176,35 +178,6 @@ enum InviteStatus {
 //  3. QUEST SYSTEM  (Random · Daily · Emergency)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-model QuestCategory {
-  id          String   @id @default(cuid())
-  name        String   @unique      // "outdoor", "social", "funny", "trivia"
-  emoji       String   @default("🎯")
-  description String?
-  /// Which character class gets bonus XP for this category
-  bonusClass  CharacterClass?
-  createdAt   DateTime @default(now())
-
-  templates QuestTemplate[]
-
-  @@index([bonusClass])
-}
-
-model QuestTemplate {
-  id          String          @id @default(cuid())
-  title       String
-  description String
-  xpReward    Int             @default(50)
-  difficulty  QuestDifficulty @default(MEDIUM)
-  categoryId  String
-  createdAt   DateTime        @default(now())
-
-  category QuestCategory @relation(fields: [categoryId], references: [id])
-  quests   Quest[]
-
-  @@index([categoryId])
-}
-
 model Quest {
   id          String          @id @default(cuid())
   title       String
@@ -214,16 +187,16 @@ model Quest {
   difficulty  QuestDifficulty @default(MEDIUM)
   questType   QuestType       @default(DAILY)
   isAiGenerated Boolean       @default(false)
+  /// AI-аар тогтоосон bonus class — тухайн класс quest биелүүлбэл +25% XP
+  bonusClass  CharacterClass?
   status      QuestStatus     @default(ACTIVE)
   startsAt    DateTime        @default(now())
   expiresAt   DateTime
   lobbyId     String?
-  templateId  String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
   lobby       Lobby?          @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
-  template    QuestTemplate?  @relation(fields: [templateId], references: [id])
   submissions QuestSubmission[]
 
   @@index([lobbyId, status])
@@ -449,6 +422,7 @@ model DailyCheckIn {
   userId    String
   date      DateTime @db.Date
   reward    Int
+  xpReward  Int      @default(0)
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

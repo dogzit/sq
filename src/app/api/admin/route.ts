@@ -159,9 +159,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ item });
     }
     case "quest": {
-      const { title, description, xpReward, difficulty, questType, lobbyId, expiresInHours } = body;
+      const {
+        title,
+        description,
+        xpReward,
+        coinReward,
+        difficulty,
+        questType,
+        lobbyId,
+        bonusClass,
+        expiresInHours,
+      } = body;
       if (!title || !description) {
         return NextResponse.json({ error: "Гарчиг болон тайлбар шаардлагатай" }, { status: 400 });
+      }
+      if (!lobbyId) {
+        return NextResponse.json({ error: "Lobby сонгоно уу" }, { status: 400 });
       }
       const hours = Number(expiresInHours) || 24;
       const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -170,9 +183,11 @@ export async function POST(request: Request) {
           title,
           description,
           xpReward: Number(xpReward) || 50,
+          coinReward: Number(coinReward) || 0,
           difficulty: difficulty || "MEDIUM",
           questType: questType || "DAILY",
-          lobbyId: lobbyId || null,
+          lobbyId,
+          bonusClass: bonusClass && bonusClass !== "NONE" ? bonusClass : null,
           expiresAt,
         },
         include: { lobby: { select: { name: true } }, _count: { select: { submissions: true } } },

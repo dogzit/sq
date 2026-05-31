@@ -91,12 +91,21 @@ export function streakMultiplier(streak: number): number {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const MILESTONE_BONUSES: Record<number, number> = { 7: 50, 14: 100, 21: 150, 28: 200 };
+const MILESTONE_XP_BONUSES: Record<number, number> = { 7: 25, 14: 50, 21: 75, 28: 100 };
 
 /** Calculate daily check-in coin reward based on streak */
 export function dailyCheckInReward(streak: number): number {
   const base = 10;
   const streakBonus = Math.min(streak, 7) * 5; // 5 per streak day, max +35
   const milestoneBonus = MILESTONE_BONUSES[streak] || 0;
+  return base + streakBonus + milestoneBonus;
+}
+
+/** Calculate daily check-in XP reward based on streak */
+export function dailyCheckInXpReward(streak: number): number {
+  const base = 5;
+  const streakBonus = Math.min(streak, 7) * 3; // 3 per streak day, max +21
+  const milestoneBonus = MILESTONE_XP_BONUSES[streak] || 0;
   return base + streakBonus + milestoneBonus;
 }
 
@@ -159,7 +168,7 @@ export async function awardQuestXP(params: AwardQuestXPParams): Promise<AwardQue
     multiplier *= effect.multiplier;
   }
 
-  // 3. Character class bonus (for any quest with a template category)
+  // 3. Character class bonus (AI-аар тогтоосон bonusClass)
   if (lobbyId) {
     const member = await prisma.lobbyMember.findUnique({
       where: { userId_lobbyId: { userId, lobbyId } },
@@ -167,9 +176,9 @@ export async function awardQuestXP(params: AwardQuestXPParams): Promise<AwardQue
     if (member) {
       const quest = await prisma.quest.findUnique({
         where: { id: questId },
-        include: { template: { include: { category: true } } },
+        select: { bonusClass: true },
       });
-      if (quest?.template?.category?.bonusClass === member.characterClass) {
+      if (quest?.bonusClass && quest.bonusClass === member.characterClass) {
         multiplier *= 1.25;
       }
     }

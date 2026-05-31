@@ -62,7 +62,7 @@ export default function QuestsPage() {
                     <div className={`game-card p-4 ${done ? "opacity-50" : ""}`}>
                       <div className="flex items-start gap-3">
                         <div className="emoji-ring text-lg flex-shrink-0">
-                          {quest.questType === "EMERGENCY" ? "⚡" : quest.template?.category?.emoji || "🎯"}
+                          {quest.questType === "EMERGENCY" ? "⚡" : "🎯"}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">

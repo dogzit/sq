@@ -68,11 +68,18 @@ export default function AchievementsPage() {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">{ach.description}</p>
-                      {ach.coinReward > 0 && (
-                        <span className={`text-[10px] font-mono ${rt}`}>
-                          +{ach.coinReward} coins
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {ach.xpReward > 0 && (
+                          <span className={`text-[10px] font-mono ${rt}`}>
+                            +{ach.xpReward} XP
+                          </span>
+                        )}
+                        {ach.coinReward > 0 && (
+                          <span className={`text-[10px] font-mono ${rt}`}>
+                            +{ach.coinReward} 🪙
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {isUnlocked ? (
                       <span className="text-neon-green text-lg">✓</span>

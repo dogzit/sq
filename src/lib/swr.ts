@@ -101,7 +101,9 @@ export function useCheckIn() {
   return {
     checkedInToday: data?.checkedInToday || false,
     pendingReward: data?.pendingReward || 0,
+    pendingXpReward: data?.pendingXpReward || 0,
     todayReward: data?.todayReward || 0,
+    todayXpReward: data?.todayXpReward || 0,
     streak: data?.streak || 0,
     nextMilestone: data?.nextMilestone,
     isLoading,

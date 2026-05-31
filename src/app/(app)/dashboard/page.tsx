@@ -5,14 +5,27 @@ import { SkeletonCard, SkeletonProfile } from "@/components/Skeleton";
 import { AnimatedList, AnimatedItem, FadeIn } from "@/components/AnimatedList";
 import { useState } from "react";
 import { useUser, useQuests, useCheckIn } from "@/lib/swr";
+import useSWR from "swr";
 import { xpForLevel, calculateLevel, levelProgress, xpToNextLevel } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "sonner";
 
+interface PushupStatusLite {
+  unlocked: boolean;
+  daysLeft: number;
+  coinsPerRep: number;
+}
+
+const pushupFetcher = (url: string) => fetch(url).then((r) => r.json());
+
 export default function DashboardPage() {
   const { user, isLoading: userLoading, mutate: mutateUser } = useUser();
   const { quests, isLoading: questsLoading } = useQuests();
-  const { checkedInToday, pendingReward, streak, nextMilestone, mutate: mutateCheckIn } = useCheckIn();
+  const { checkedInToday, pendingReward, pendingXpReward, streak, nextMilestone, mutate: mutateCheckIn } = useCheckIn();
+  const { data: pushupStatus } = useSWR<PushupStatusLite>(
+    "/api/pushups/status",
+    pushupFetcher,
+  );
   const [checkingIn, setCheckingIn] = useState(false);
 
   async function handleCheckIn() {
@@ -24,7 +37,9 @@ export default function DashboardPage() {
         toast.error(data.error || "Check-in хийж чадсангүй");
         return;
       }
-      toast.success(`+${data.reward} coin! Streak: ${data.streak} хоног`);
+      toast.success(
+        `+${data.reward} 🪙 · +${data.xpReward} XP! Streak: ${data.streak} хоног`,
+      );
       mutateCheckIn();
       mutateUser();
     } catch {
@@ -123,7 +138,7 @@ export default function DashboardPage() {
                 <div className="text-[11px] text-muted-foreground">
                   {checkedInToday
                     ? "Claimed today!"
-                    : `+${pendingReward} coins${nextMilestone ? ` · ${nextMilestone} day milestone soon` : ""}`
+                    : `+${pendingReward} 🪙 · +${pendingXpReward} XP${nextMilestone ? ` · ${nextMilestone} day milestone soon` : ""}`
                   }
                 </div>
               </div>
@@ -170,6 +185,53 @@ export default function DashboardPage() {
           </div>
         </AnimatedItem>
 
+        {/* Pushups challenge */}
+        <AnimatedItem>
+          {pushupStatus ? (
+            pushupStatus.unlocked ? (
+              <Link
+                href="/pushups"
+                className="game-card p-4 flex items-center justify-between bg-gradient-to-r from-neon-purple/10 to-cyan-500/10 border-neon-purple/40 group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="emoji-ring">💪</div>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground group-hover:text-neon-purple transition-colors">
+                      AI Push-up Challenge
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Идэвхтэй · бүр {pushupStatus.coinsPerRep}🪙 шагнал
+                    </div>
+                  </div>
+                </div>
+                <span className="pill bg-emerald-500/15 text-emerald-400 font-mono animate-pulse">
+                  ● OPEN
+                </span>
+              </Link>
+            ) : (
+              <div className="game-card p-4 flex items-center justify-between opacity-80">
+                <div className="flex items-center gap-3">
+                  <div className="emoji-ring grayscale">🔒</div>
+                  <div>
+                    <div className="text-sm font-semibold text-muted-foreground">
+                      AI Push-up Challenge
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      <span className="font-mono text-neon-purple font-bold">
+                        {pushupStatus.daysLeft} хоног
+                      </span>
+                      -ийн дараа нээгдэнэ
+                    </div>
+                  </div>
+                </div>
+                <span className="pill bg-muted text-muted-foreground font-mono">
+                  🔒 LOCKED
+                </span>
+              </div>
+            )
+          ) : null}
+        </AnimatedItem>
+
         {/* Active Quests */}
         <AnimatedItem>
           <div className="flex items-center justify-between mb-3">
@@ -199,9 +261,7 @@ export default function DashboardPage() {
                 return (
                   <Link key={quest.id} href={`/quests/${quest.id}`}>
                     <div className={`game-card p-3.5 flex items-center gap-3 ${done ? "opacity-50" : ""}`}>
-                      <div className="emoji-ring">
-                        {quest.template?.category?.emoji || "🎯"}
-                      </div>
+                      <div className="emoji-ring">🎯</div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold truncate">{quest.title}</div>
                         <div className="flex items-center gap-2 mt-0.5">
