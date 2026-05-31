@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:fresh": "rm -rf .next node_modules/.cache && next dev",
+    "fresh": "rm -rf .next node_modules/.cache",
     "postinstall": "prisma generate",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx prisma/seed.ts",
-    "db:push": "npx prisma db push",
+    "db:push": "prisma db push && prisma generate && rm -rf .next node_modules/.cache",
     "db:studio": "npx prisma studio",
     "test": "vitest run",
     "test:watch": "vitest"
