@@ -1,37 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { uploadMediaStream } from "@/lib/cloudinary";
 import { awardQuestXP } from "@/lib/economy";
 import { notifyLobbyMembers } from "@/lib/notifications";
-
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;   // 10 MB
-const MAX_VIDEO_BYTES = 80 * 1024 * 1024;   // 80 MB
-
-export const maxDuration = 60; // Vercel — long upload
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
-  const form = await req.formData();
-  const file = form.get("file") as File | null;
-  const questId = (form.get("questId") as string | null)?.trim();
-  const caption = (form.get("caption") as string | null) ?? null;
+  const body = await req.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: "Буруу хүсэлт" }, { status: 400 });
 
-  if (!file) return NextResponse.json({ error: "Файл байхгүй" }, { status: 400 });
+  const mediaUrl = typeof body.mediaUrl === "string" ? body.mediaUrl.trim() : "";
+  const mediaType = body.mediaType === "VIDEO" ? "VIDEO" : "IMAGE";
+  const questId = typeof body.questId === "string" ? body.questId.trim() : "";
+  const caption = typeof body.caption === "string" ? body.caption : null;
+
+  if (!mediaUrl) return NextResponse.json({ error: "mediaUrl шаардлагатай" }, { status: 400 });
   if (!questId) return NextResponse.json({ error: "questId шаардлагатай" }, { status: 400 });
 
-  const isImage = file.type.startsWith("image/");
-  const isVideo = file.type.startsWith("video/");
-  if (!isImage && !isVideo) {
-    return NextResponse.json({ error: "Зөвхөн зураг эсвэл видео оруулна уу" }, { status: 400 });
-  }
-  if (isImage && file.size > MAX_IMAGE_BYTES) {
-    return NextResponse.json({ error: "Зураг 10MB-аас бага байх ёстой" }, { status: 400 });
-  }
-  if (isVideo && file.size > MAX_VIDEO_BYTES) {
-    return NextResponse.json({ error: "Видео 80MB-аас бага байх ёстой" }, { status: 400 });
+  // Ensure URL came from our Cloudinary cloud (prevent abuse)
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  if (cloudName && !mediaUrl.includes(`res.cloudinary.com/${cloudName}/`)) {
+    return NextResponse.json({ error: "Буруу media URL" }, { status: 400 });
   }
 
   const quest = await prisma.quest.findUnique({ where: { id: questId } });
@@ -46,22 +37,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Аль хэдийн илгээсэн байна" }, { status: 409 });
   }
 
-  // Upload to Cloudinary via stream
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const uploaded = await uploadMediaStream(
-    buffer,
-    "sidequest/submissions",
-    isVideo ? "video" : "image"
-  );
-
-  const mediaType = isVideo ? "VIDEO" : "IMAGE";
+  const isVideo = mediaType === "VIDEO";
   const isLobbyQuest = !!quest.lobbyId;
 
   if (isLobbyQuest) {
     const vetoDeadline = new Date(Date.now() + 3 * 60 * 60 * 1000);
     const submission = await prisma.questSubmission.create({
       data: {
-        mediaUrl: uploaded.url,
+        mediaUrl,
         mediaType,
         caption,
         vetoStatus: "PENDING",
@@ -85,7 +68,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ submission, pending: true }, { status: 201 });
   }
 
-  // Global quest: auto-approve
   const { xpAwarded, coinsAwarded } = await awardQuestXP({
     userId: user.id,
     questId,
@@ -96,7 +78,7 @@ export async function POST(req: NextRequest) {
 
   const submission = await prisma.questSubmission.create({
     data: {
-      mediaUrl: uploaded.url,
+      mediaUrl,
       mediaType,
       caption,
       vetoStatus: "APPROVED",

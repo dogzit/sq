@@ -99,12 +99,50 @@ export default function QuestDetailPage() {
     if (!pickedFile) return;
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append("file", pickedFile);
-      form.append("questId", questId);
-      if (caption) form.append("caption", caption);
+      const isVideo = pickedFile.type.startsWith("video/");
+      const resourceType: "image" | "video" = isVideo ? "video" : "image";
 
-      const res = await fetch("/api/submissions", { method: "POST", body: form });
+      // 1. Get signed upload params from server
+      const signRes = await fetch("/api/cloudinary/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: "sidequest/submissions", resourceType }),
+      });
+      const signData = await signRes.json();
+      if (!signRes.ok) {
+        toast.error(signData.error || "Cloudinary signature авч чадсангүй");
+        return;
+      }
+
+      // 2. Upload directly to Cloudinary (bypasses Vercel body limit)
+      const cloudForm = new FormData();
+      cloudForm.append("file", pickedFile);
+      cloudForm.append("api_key", signData.apiKey);
+      cloudForm.append("timestamp", String(signData.timestamp));
+      cloudForm.append("signature", signData.signature);
+      cloudForm.append("folder", signData.folder);
+
+      const uploadRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${signData.cloudName}/${resourceType}/upload`,
+        { method: "POST", body: cloudForm }
+      );
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.secure_url) {
+        toast.error(uploadData.error?.message || "Cloudinary upload амжилтгүй");
+        return;
+      }
+
+      // 3. Tell our server about the new submission
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaUrl: uploadData.secure_url,
+          mediaType: isVideo ? "VIDEO" : "IMAGE",
+          questId,
+          caption: caption || null,
+        }),
+      });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || "Илгээж чадсангүй");

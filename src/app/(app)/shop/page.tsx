@@ -87,12 +87,12 @@ export default function ShopPage() {
     }
   }
 
-  async function handleEquipTitle(purchaseId: string) {
+  async function handleEquipTitle(purchaseId: string, lobbyId: string) {
     try {
       const res = await fetch("/api/shop/equip-title", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ purchaseId }),
+        body: JSON.stringify({ purchaseId, lobbyId }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -279,12 +279,14 @@ export default function ShopPage() {
                           </div>
                           <p className="text-xs text-muted-foreground">{p.item.description}</p>
                         </div>
-                        {isTitle || isFrame ? (
+                        {isTitle ? (
+                          <EquipTitleButton purchase={p} onEquip={handleEquipTitle} />
+                        ) : isFrame ? (
                           <button
-                            onClick={() => handleEquipTitle(p.id)}
-                            className="text-xs py-2 px-3 rounded-xl bg-neon-purple/10 text-neon-purple font-semibold hover:bg-neon-purple/20 transition-colors"
+                            disabled
+                            className="text-xs py-2 px-3 rounded-xl bg-secondary text-muted-foreground font-semibold cursor-not-allowed"
                           >
-                            Зүүх
+                            Удахгүй
                           </button>
                         ) : isSelfBuff ? (
                           <button
@@ -308,6 +310,74 @@ export default function ShopPage() {
         )}
       </AnimatedList>
     </>
+  );
+}
+
+// Component to pick a lobby to equip a title in
+function EquipTitleButton({
+  purchase,
+  onEquip,
+}: {
+  purchase: Purchase;
+  onEquip: (purchaseId: string, lobbyId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [lobbies, setLobbies] = useState<any[]>([]);
+
+  function handleOpen() {
+    setOpen(true);
+    fetch("/api/lobbies")
+      .then((r) => r.json())
+      .then((d) => setLobbies(d.lobbies || []))
+      .catch(() => {});
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={handleOpen}
+        className="text-xs py-2 px-3 rounded-xl bg-neon-purple/10 text-neon-purple font-semibold hover:bg-neon-purple/20 transition-colors"
+      >
+        Зүүх
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+      onClick={() => setOpen(false)}
+    >
+      <div className="game-card p-5 w-full max-w-sm space-y-3 max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-display text-sm font-bold">
+          {purchase.item.iconEmoji} {purchase.item.name} — Аль lobby-д?
+        </h3>
+        {lobbies.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-4">
+            Та эхлээд lobby-д нэгдэх хэрэгтэй
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {lobbies.map((l: any) => (
+              <button
+                key={l.id}
+                onClick={() => { onEquip(purchase.id, l.id); setOpen(false); }}
+                className="w-full game-card p-3 flex items-center gap-3 hover:ring-1 hover:ring-neon-purple/40 transition-all"
+              >
+                <div className="w-8 h-8 rounded-full bg-neon-purple/15 flex items-center justify-center text-xs font-bold text-neon-purple">
+                  {l.name?.[0] || "?"}
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-medium">{l.name}</div>
+                  <div className="text-xs text-muted-foreground">{l.members?.length || 0} гишүүн</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        <button onClick={() => setOpen(false)} className="btn-game-outline w-full text-sm">Цуцлах</button>
+      </div>
+    </div>
   );
 }
 
