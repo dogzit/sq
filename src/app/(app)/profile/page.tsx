@@ -5,19 +5,54 @@ import { useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import { SkeletonList } from "@/components/Skeleton";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
-import { useUser, useSubmissions } from "@/lib/swr";
+import { useUser, useSubmissions, useFriendships, useSuggestedUsers } from "@/lib/swr";
 import AvatarUpload from "@/components/AvatarUpload";
 import ProfileCompleteModal from "@/components/ProfileCompleteModal";
+import UserAvatar from "@/components/UserAvatar";
+import FriendButton, { type FriendshipState } from "@/components/FriendButton";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+
+interface FriendshipRow {
+  id: string;
+  status: string;
+  requester: { id: string; username: string; displayName: string; avatarUrl: string | null; level: number };
+  addressee: { id: string; username: string; displayName: string; avatarUrl: string | null; level: number };
+}
+
+interface SuggestedUser {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  level: number;
+  friendship: FriendshipState;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isLoading, mutate } = useUser();
   const { submissions, isLoading: subLoading } = useSubmissions();
-  const [tab, setTab] = useState<"stats" | "album">("stats");
+  const { friendships: accepted, mutate: mutateAccepted } = useFriendships("ACCEPTED");
+  const { friendships: pending, mutate: mutatePending } = useFriendships("PENDING");
+  const { users: suggested, mutate: mutateSuggested } = useSuggestedUsers();
+  const [tab, setTab] = useState<"stats" | "album" | "friends">("stats");
   const [showLogout, setShowLogout] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+
+  const incomingRequests = (pending as FriendshipRow[]).filter(
+    (f) => f.addressee.id === user?.id
+  );
+
+  const friends = (accepted as FriendshipRow[]).map((f) =>
+    f.requester.id === user?.id ? f.addressee : f.requester
+  );
+
+  function refreshFriendData() {
+    mutateAccepted();
+    mutatePending();
+    mutateSuggested();
+  }
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -112,13 +147,11 @@ export default function ProfilePage() {
         <AnimatedItem>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { href: "/users", emoji: "👥", label: "Хүмүүс" },
               { href: "/games", emoji: "🎮", label: "Games" },
               { href: "/leaderboard", emoji: "🏆", label: "Leaderboard" },
               { href: "/achievements", emoji: "🎖️", label: "Achievements" },
               { href: "/trivia/mine", emoji: "🧠", label: "Миний Trivia" },
               { href: "/safe-mode", emoji: "🏕️", label: "Camping Pass" },
-
             ].map(({ href, emoji, label }) => (
               <Link key={href} href={href} className="game-card p-3 flex items-center gap-2">
                 <span className="text-lg">{emoji}</span>
@@ -131,14 +164,23 @@ export default function ProfilePage() {
         {/* ── Tabs ── */}
         <AnimatedItem>
           <div className="flex border-b border-border">
-            {(["stats", "album"] as const).map((t) => (
+            {(["stats", "album", "friends"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`flex-1 py-2.5 text-xs font-medium tracking-wide transition-all ${tab === t ? "text-neon-purple border-b-2 border-neon-purple" : "text-muted-foreground"
+                className={`flex-1 py-2.5 text-xs font-medium tracking-wide transition-all relative ${tab === t ? "text-neon-purple border-b-2 border-neon-purple" : "text-muted-foreground"
                   }`}
               >
-                {t === "stats" ? "Stats" : `Album (${subLoading ? "…" : submissions.length})`}
+                {t === "stats" && "Stats"}
+                {t === "album" && `Album (${subLoading ? "…" : submissions.length})`}
+                {t === "friends" && (
+                  <>
+                    Найз ({friends.length})
+                    {incomingRequests.length > 0 && (
+                      <span className="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-neon-orange" />
+                    )}
+                  </>
+                )}
               </button>
             ))}
           </div>
@@ -187,6 +229,104 @@ export default function ProfilePage() {
                 )}
               </div>
             )
+          )}
+
+          {tab === "friends" && (
+            <div className="space-y-4">
+              {/* Incoming requests */}
+              {incomingRequests.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+                    Шинэ хүсэлт ({incomingRequests.length})
+                  </div>
+                  {incomingRequests.map((f) => (
+                    <div key={f.id} className="game-card p-2.5 flex items-center gap-2.5">
+                      <Link
+                        href={`/users/${f.requester.username}`}
+                        className="flex items-center gap-2.5 flex-1 min-w-0"
+                      >
+                        <UserAvatar user={f.requester} size={36} linkToProfile={false} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold truncate">{f.requester.displayName}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            @{f.requester.username}
+                          </div>
+                        </div>
+                      </Link>
+                      <FriendButton
+                        userId={f.requester.id}
+                        friendship={{ id: f.id, status: "PENDING", direction: "incoming" }}
+                        onChange={refreshFriendData}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Friends list */}
+              <div className="space-y-1.5">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground px-1">
+                  Найзууд ({friends.length})
+                </div>
+                {friends.length === 0 ? (
+                  <div className="game-card p-6 text-center text-sm text-muted-foreground">
+                    Найз хараахан алга
+                  </div>
+                ) : (
+                  friends.map((u) => (
+                    <Link
+                      key={u.id}
+                      href={`/users/${u.username}`}
+                      className="game-card p-2.5 flex items-center gap-2.5 hover:border-neon-purple/40 transition"
+                    >
+                      <UserAvatar user={u} size={36} linkToProfile={false} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate">{u.displayName}</div>
+                        <div className="text-xs text-muted-foreground truncate">@{u.username}</div>
+                      </div>
+                      <span className="pill bg-neon-purple/10 text-neon-purple text-[10px]">
+                        Lvl {u.level}
+                      </span>
+                    </Link>
+                  ))
+                )}
+              </div>
+
+              {/* Suggestions */}
+              {suggested.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between px-1">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Санал болгох
+                    </div>
+                    <Link href="/users" className="text-[10px] text-neon-purple hover:underline">
+                      Бүгд →
+                    </Link>
+                  </div>
+                  {(suggested as SuggestedUser[]).map((u) => (
+                    <div key={u.id} className="game-card p-2.5 flex items-center gap-2.5">
+                      <Link
+                        href={`/users/${u.username}`}
+                        className="flex items-center gap-2.5 flex-1 min-w-0"
+                      >
+                        <UserAvatar user={u} size={36} linkToProfile={false} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold truncate">{u.displayName}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            @{u.username} · Lvl {u.level}
+                          </div>
+                        </div>
+                      </Link>
+                      <FriendButton
+                        userId={u.id}
+                        friendship={u.friendship}
+                        onChange={refreshFriendData}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </AnimatedItem>
       </AnimatedList>

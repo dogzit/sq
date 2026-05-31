@@ -138,6 +138,31 @@ export function useAchievements() {
   };
 }
 
+export function useFriendships(status?: "PENDING" | "ACCEPTED") {
+  const url = status ? `/api/friendships?status=${status}` : "/api/friendships";
+  const { data, error, isLoading, mutate } = useSWR(url, fetcher, defaultConfig);
+  return {
+    friendships: data?.friendships || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function useSuggestedUsers() {
+  const { data, error, isLoading, mutate } = useSWR(
+    "/api/users?suggest=true&limit=8",
+    fetcher,
+    defaultConfig
+  );
+  return {
+    users: data?.users || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
 export function useLocations(lobbyId: string) {
   const { data, error, isLoading } = useSWR(
     lobbyId ? `/api/location?lobbyId=${lobbyId}` : null,

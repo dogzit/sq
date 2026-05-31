@@ -1,6 +1,7 @@
 "use client";
 
 import TopBar from "@/components/TopBar";
+import PushPermissionPrompt from "@/components/PushPermissionPrompt";
 import { SkeletonCard, SkeletonProfile } from "@/components/Skeleton";
 import { AnimatedList, AnimatedItem, FadeIn } from "@/components/AnimatedList";
 import { useState } from "react";
@@ -282,6 +283,7 @@ export default function DashboardPage() {
           )}
         </AnimatedItem>
       </AnimatedList>
+      <PushPermissionPrompt />
     </>
   );
 }

@@ -45,6 +45,7 @@ model User {
 
   // ── Relations ──
   otpCodes            OtpCode[]
+  pushSubscriptions   PushSubscription[]
   ownedLobbies        Lobby[]            @relation("LobbyOwner")
   lobbyMembers        LobbyMember[]
   submissions         QuestSubmission[]
@@ -110,6 +111,23 @@ model PendingSignup {
   createdAt    DateTime @default(now())
 
   @@index([email])
+}
+
+/// A user's browser/device Web Push subscription.
+/// One user may have multiple (different devices/browsers).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  userId    String
+  createdAt DateTime @default(now())
+  lastUsed  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model OtpCode {
@@ -258,10 +276,12 @@ enum QuestStatus {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model QuestSubmission {
-  id           String     @id @default(cuid())
-  mediaUrl     String
-  mediaType    MediaType  @default(IMAGE)
-  caption      String?
+  id             String     @id @default(cuid())
+  mediaUrl       String
+  /// Additional photo URLs (when user uploads multiple)
+  extraMediaUrls String[]   @default([])
+  mediaType      MediaType  @default(IMAGE)
+  caption        String?
   /// Veto status — starts PENDING, resolved after vote window
   vetoStatus   VetoStatus @default(PENDING)
   vetoDeadline DateTime? // when voting ends

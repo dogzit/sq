@@ -35,6 +35,46 @@ export async function sendOtpEmail(to: string, code: string) {
   });
 }
 
+export async function sendNotificationEmail(params: {
+  to: string;
+  title: string;
+  body: string;
+  url?: string;
+}) {
+  const transporter = getTransporter();
+  const url = params.url
+    ? `${process.env.NEXT_PUBLIC_APP_URL || "https://sidequest.app"}${params.url}`
+    : null;
+  return transporter.sendMail({
+    from: FROM,
+    to: params.to,
+    subject: params.title,
+    html: `
+      <div style="font-family: 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+          <span style="font-size:24px;">⚡</span>
+          <span style="color:#7C5CFF;font-weight:bold;font-size:14px;letter-spacing:1px;">SIDEQUEST</span>
+        </div>
+        <h2 style="margin:0 0 8px;color:#1a1a1a;font-size:18px;">${escape(params.title)}</h2>
+        <p style="margin:0 0 24px;color:#444;font-size:14px;line-height:1.5;">${escape(params.body)}</p>
+        ${url
+          ? `<a href="${url}" style="display:inline-block;background:#7C5CFF;color:white;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px;">Үзэх</a>`
+          : ""}
+        <p style="margin:32px 0 0;color:#999;font-size:11px;">Энэ мэдэгдэл SideQuest app-аас илгээгдсэн.</p>
+      </div>
+    `,
+  });
+}
+
+function escape(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function sendEmergencyQuestEmail(
   to: string[],
   questTitle: string,

@@ -15,15 +15,29 @@ export async function POST(req: NextRequest) {
   const mediaType = body.mediaType === "VIDEO" ? "VIDEO" : "IMAGE";
   const questId = typeof body.questId === "string" ? body.questId.trim() : "";
   const caption = typeof body.caption === "string" ? body.caption : null;
+  const extraMediaUrls: string[] = Array.isArray(body.extraMediaUrls)
+    ? body.extraMediaUrls
+        .filter((u: unknown): u is string => typeof u === "string")
+        .map((u: string) => u.trim())
+        .filter((u: string) => u.length > 0)
+        .slice(0, 9)
+    : [];
 
   if (!mediaUrl) return NextResponse.json({ error: "mediaUrl шаардлагатай" }, { status: 400 });
   if (!questId) return NextResponse.json({ error: "questId шаардлагатай" }, { status: 400 });
 
   // Ensure URL came from our Cloudinary cloud (prevent abuse)
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  if (cloudName && !mediaUrl.includes(`res.cloudinary.com/${cloudName}/`)) {
+  const isOurCloudinaryUrl = (u: string) =>
+    !cloudName || u.includes(`res.cloudinary.com/${cloudName}/`);
+  if (!isOurCloudinaryUrl(mediaUrl)) {
     return NextResponse.json({ error: "Буруу media URL" }, { status: 400 });
   }
+  if (extraMediaUrls.some((u) => !isOurCloudinaryUrl(u))) {
+    return NextResponse.json({ error: "Буруу нэмэлт media URL" }, { status: 400 });
+  }
+  // Videos cannot have extra photos (UI is single-file for video)
+  const finalExtraMediaUrls = mediaType === "VIDEO" ? [] : extraMediaUrls;
 
   const quest = await prisma.quest.findUnique({ where: { id: questId } });
   if (!quest || quest.status !== "ACTIVE") {
@@ -45,6 +59,7 @@ export async function POST(req: NextRequest) {
     const submission = await prisma.questSubmission.create({
       data: {
         mediaUrl,
+        extraMediaUrls: finalExtraMediaUrls,
         mediaType,
         caption,
         vetoStatus: "PENDING",
@@ -79,6 +94,7 @@ export async function POST(req: NextRequest) {
   const submission = await prisma.questSubmission.create({
     data: {
       mediaUrl,
+      extraMediaUrls: finalExtraMediaUrls,
       mediaType,
       caption,
       vetoStatus: "APPROVED",

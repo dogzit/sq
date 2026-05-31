@@ -6,6 +6,7 @@ import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { SkeletonList } from "@/components/Skeleton";
 import { useNotifications } from "@/lib/swr";
 import { formatTimeAgo } from "@/lib/utils";
+import PushToggle from "@/components/PushToggle";
 
 const typeIcons: Record<string, string> = {
   vote_needed: "🗳️",
@@ -112,6 +113,7 @@ export default function NotificationsPage() {
       />
 
       <AnimatedList className="px-4 py-4 space-y-2 max-w-2xl mx-auto pb-24">
+        <AnimatedItem><PushToggle /></AnimatedItem>
         {isLoading ? (
           <AnimatedItem><SkeletonList count={5} /></AnimatedItem>
         ) : notifications.length === 0 ? (

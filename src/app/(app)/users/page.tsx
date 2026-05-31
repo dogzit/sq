@@ -6,6 +6,7 @@ import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { SkeletonList } from "@/components/Skeleton";
 import UserAvatar from "@/components/UserAvatar";
+import FriendButton, { type FriendshipState } from "@/components/FriendButton";
 
 interface DiscoverUser {
   id: string;
@@ -17,6 +18,7 @@ interface DiscoverUser {
   xp: number;
   streak: number;
   interests: string[];
+  friendship: FriendshipState;
 }
 
 export default function DiscoverUsersPage() {
@@ -24,27 +26,28 @@ export default function DiscoverUsersPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
 
+  async function load(signal?: AbortSignal) {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(q)}`, { signal });
+      if (!res.ok) return;
+      const d = await res.json();
+      setUsers(d.users || []);
+    } catch {
+      // aborted
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     const ctrl = new AbortController();
-    const timeout = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/users?q=${encodeURIComponent(q)}`, {
-          signal: ctrl.signal,
-        });
-        if (!res.ok) return;
-        const d = await res.json();
-        setUsers(d.users || []);
-      } catch {
-        // aborted
-      } finally {
-        setLoading(false);
-      }
-    }, 200);
+    const timeout = setTimeout(() => load(ctrl.signal), 200);
     return () => {
       ctrl.abort();
       clearTimeout(timeout);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
   return (
@@ -104,9 +107,8 @@ export default function DiscoverUsersPage() {
                       </div>
                     )}
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="font-mono text-sm font-bold text-neon-gold">{u.xp}</div>
-                    <div className="text-[10px] text-muted-foreground">XP</div>
+                  <div className="flex-shrink-0">
+                    <FriendButton userId={u.id} friendship={u.friendship} />
                   </div>
                 </Link>
               </AnimatedItem>
