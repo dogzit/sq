@@ -129,7 +129,26 @@ export default function ShopPage() {
 
   const unusedItems = purchased.filter((p) => !p.used);
   const itemTypes = ["ALL", ...new Set(items.map((i) => i.itemType))];
-  const filteredItems = filter === "ALL" ? items : items.filter((i) => i.itemType === filter);
+  const coins = user?.coins ?? 0;
+
+  // Show items the user can act on first: affordable & not yet owned → can't
+  // afford yet → already owned. Within each bucket keep cheapest first so the
+  // next achievable goal is visible.
+  const sortedItems = [...items].sort((a, b) => {
+    const ownedA =
+      (a.itemType === "TITLE" || a.itemType === "AVATAR_FRAME") &&
+      purchased.some((p) => p.shopItemId === a.id);
+    const ownedB =
+      (b.itemType === "TITLE" || b.itemType === "AVATAR_FRAME") &&
+      purchased.some((p) => p.shopItemId === b.id);
+    const rankA = ownedA ? 2 : coins >= a.price ? 0 : 1;
+    const rankB = ownedB ? 2 : coins >= b.price ? 0 : 1;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.price - b.price;
+  });
+
+  const filteredItems =
+    filter === "ALL" ? sortedItems : sortedItems.filter((i) => i.itemType === filter);
 
   return (
     <>

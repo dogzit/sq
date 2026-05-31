@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { notifyAdmins } from "@/lib/notifications";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -52,9 +53,10 @@ export async function POST(req: NextRequest) {
   const coin = Math.min(Math.max(Number(coinReward) || 10, 1), 100);
   const xp = Math.min(Math.max(Number(xpReward) || 20, 1), 200);
 
+  const trimmedQuestion = question.trim();
   const created = await prisma.triviaQuestion.create({
     data: {
-      question: question.trim(),
+      question: trimmedQuestion,
       options: options.map((o: string) => o.trim()),
       correctIndex,
       coinReward: coin,
@@ -63,6 +65,14 @@ export async function POST(req: NextRequest) {
     },
     select: { id: true },
   });
+
+  notifyAdmins({
+    excludeUserId: user.id,
+    type: "TRIVIA_PENDING",
+    title: "🧠 Шинэ trivia батлах хүлээгдэж байна",
+    body: `${user.displayName}: "${trimmedQuestion.slice(0, 60)}${trimmedQuestion.length > 60 ? "…" : ""}"`,
+    metadata: { triviaId: created.id, creatorUsername: user.username },
+  }).catch(() => {});
 
   return NextResponse.json({ id: created.id });
 }

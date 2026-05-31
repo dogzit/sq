@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import TopBar from "@/components/TopBar";
 import { SkeletonList } from "@/components/Skeleton";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
+import UserAvatar from "@/components/UserAvatar";
 import { useLeaderboard } from "@/lib/swr";
 
 const rankEmoji = ["🥇", "🥈", "🥉"];
@@ -12,7 +14,18 @@ export default function LeaderboardPage() {
 
   return (
     <>
-      <TopBar title="Leaderboard" showBack />
+      <TopBar
+        title="Leaderboard"
+        showBack
+        rightAction={
+          <Link
+            href="/users"
+            className="text-xs px-3 py-1.5 rounded-full font-semibold bg-neon-purple/10 text-neon-purple"
+          >
+            Хүмүүс
+          </Link>
+        }
+      />
 
       <div className="px-4 py-4 space-y-2 max-w-2xl mx-auto">
         {isLoading ? (
@@ -21,15 +34,16 @@ export default function LeaderboardPage() {
           <AnimatedList className="space-y-2">
             {leaderboard.map((entry: any) => (
               <AnimatedItem key={entry.id}>
-                <div className={`game-card p-3.5 flex items-center gap-3 ${entry.rank <= 3 ? "ring-1 ring-neon-purple/20" : ""}`}>
+                <Link
+                  href={`/users/${entry.username}`}
+                  className={`game-card p-3.5 flex items-center gap-3 hover:border-neon-purple/40 transition-all ${entry.rank <= 3 ? "ring-1 ring-neon-purple/20" : ""}`}
+                >
                   <div className="w-8 text-center text-lg font-bold flex-shrink-0">
                     {entry.rank <= 3 ? rankEmoji[entry.rank - 1] : (
                       <span className="text-muted-foreground text-sm font-mono">#{entry.rank}</span>
                     )}
                   </div>
-                  <div className="w-10 h-10 rounded-full bg-neon-purple/15 ring-2 ring-neon-purple/20 flex items-center justify-center text-sm font-bold text-neon-purple flex-shrink-0">
-                    {entry.displayName[0]}
-                  </div>
+                  <UserAvatar user={entry} size={40} linkToProfile={false} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold truncate">{entry.displayName}</div>
                     <div className="text-xs text-muted-foreground">
@@ -42,7 +56,7 @@ export default function LeaderboardPage() {
                     </div>
                     <div className="text-[10px] text-muted-foreground">XP</div>
                   </div>
-                </div>
+                </Link>
               </AnimatedItem>
             ))}
           </AnimatedList>

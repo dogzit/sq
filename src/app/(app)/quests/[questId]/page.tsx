@@ -338,7 +338,7 @@ export default function QuestDetailPage() {
               {submissions.map((sub) => {
                 const isMine = sub.user.id === currentUserId;
                 const myVote = sub.votes.find((v) => v.voterId === currentUserId);
-                const canVote = !isMine && sub.vetoStatus === "PENDING";
+                const canVote = !isMine;
 
                 return (
                   <div key={sub.id} className="game-card p-3.5">

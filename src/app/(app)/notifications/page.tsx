@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { SkeletonList } from "@/components/Skeleton";
@@ -15,10 +16,59 @@ const typeIcons: Record<string, string> = {
   lobby_invite: "📩",
   achievement_unlocked: "🏆",
   quest_assigned: "⚡",
+  friend_request: "👋",
+  friend_accepted: "🤝",
+  TRIVIA_APPROVED: "✅",
+  TRIVIA_REJECTED: "❌",
+  TRIVIA_PENDING: "🧠",
+  SAFE_MODE_DAILY_XP: "🏕️",
+  game_challenge: "🎮",
+  game_accepted: "🎮",
+  game_declined: "❌",
 };
+
+function notificationHref(type: string, metadata: Record<string, unknown> | null | undefined): string | null {
+  const m = (metadata ?? {}) as Record<string, unknown>;
+  const questId = typeof m.questId === "string" ? m.questId : null;
+  const lobbyId = typeof m.lobbyId === "string" ? m.lobbyId : null;
+  const username = typeof m.username === "string" ? m.username : null;
+  const matchId = typeof m.matchId === "string" ? m.matchId : null;
+
+  switch (type) {
+    case "game_challenge":
+    case "game_accepted":
+    case "game_declined":
+      return matchId ? (type === "game_challenge" ? `/games` : `/games/${matchId}`) : "/games";
+    case "vote_needed":
+    case "submission_approved":
+    case "submission_rejected":
+    case "quest_assigned":
+      return questId ? `/quests/${questId}` : null;
+    case "lobby_invite":
+      return lobbyId ? `/lobbies/${lobbyId}` : "/lobbies";
+    case "friend_request":
+    case "friend_accepted":
+      return username ? `/users/${username}` : "/profile";
+    case "buff_received":
+    case "debuff_received":
+      return "/profile";
+    case "achievement_unlocked":
+      return "/achievements";
+    case "TRIVIA_APPROVED":
+    case "TRIVIA_REJECTED":
+      return "/trivia";
+    case "TRIVIA_PENDING":
+      return "/admin/trivia";
+    case "SAFE_MODE_DAILY_XP":
+      return "/safe-mode";
+    default:
+      return null;
+  }
+}
 
 export default function NotificationsPage() {
   const { notifications, isLoading, mutate } = useNotifications();
+  const router = useRouter();
 
   async function markAllRead() {
     await fetch("/api/notifications", {
@@ -36,6 +86,12 @@ export default function NotificationsPage() {
       body: JSON.stringify({ notificationId: id }),
     });
     mutate();
+  }
+
+  function handleClick(notif: { id: string; read: boolean; type: string; metadata: Record<string, unknown> | null }) {
+    if (!notif.read) markRead(notif.id);
+    const href = notificationHref(notif.type, notif.metadata);
+    if (href) router.push(href);
   }
 
   return (
@@ -69,7 +125,7 @@ export default function NotificationsPage() {
           notifications.map((notif: any) => (
             <AnimatedItem key={notif.id}>
               <button
-                onClick={() => !notif.read && markRead(notif.id)}
+                onClick={() => handleClick(notif)}
                 className={`game-card p-4 w-full text-left flex items-start gap-3 transition-all ${
                   !notif.read ? "border-neon-purple/30 bg-neon-purple/5" : "opacity-60"
                 }`}

@@ -112,6 +112,8 @@ export default function ProfilePage() {
         <AnimatedItem>
           <div className="grid grid-cols-2 gap-2">
             {[
+              { href: "/users", emoji: "👥", label: "Хүмүүс" },
+              { href: "/games", emoji: "🎮", label: "Games" },
               { href: "/leaderboard", emoji: "🏆", label: "Leaderboard" },
               { href: "/achievements", emoji: "🎖️", label: "Achievements" },
               { href: "/trivia/mine", emoji: "🧠", label: "Миний Trivia" },

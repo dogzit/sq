@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { awardQuestXP } from "@/lib/economy";
+import { awardQuestXP, calculateLevel } from "@/lib/economy";
 import { checkAchievements } from "@/lib/achievements";
 import { createNotification } from "@/lib/notifications";
+
+type QuestSub = {
+  id: string;
+  userId: string;
+  questId: string;
+  vetoStatus: string;
+  xpAwarded: number;
+  coinsAwarded: number;
+  quest: { id: string; lobbyId: string | null; xpReward: number; difficulty: string };
+};
 
 export async function POST(
   request: Request,
@@ -28,69 +38,60 @@ export async function POST(
   if (submission.userId === user.id) {
     return NextResponse.json({ error: "Өөрийнхөө илгээлтэд санал өгөх боломжгүй" }, { status: 400 });
   }
-  if (submission.vetoStatus !== "PENDING") {
-    return NextResponse.json({ error: "Санал хураалт дууссан байна" }, { status: 400 });
-  }
 
-  // Check existing vote — allow changing vote
+  // Check existing vote — allow changing vote even after resolution
   const existingVote = await prisma.vetoVote.findUnique({
     where: { voterId_submissionId: { voterId: user.id, submissionId } },
   });
+
+  let updated;
+  let isFirstVote = false;
 
   if (existingVote) {
     if (existingVote.verdict === verdict) {
       return NextResponse.json({ error: "Аль хэдийн санал өгсөн байна" }, { status: 409 });
     }
-    // Change vote: update verdict and swap counts
     await prisma.vetoVote.update({
       where: { id: existingVote.id },
       data: { verdict },
     });
-    const updated = await prisma.questSubmission.update({
+    updated = await prisma.questSubmission.update({
       where: { id: submissionId },
       data: {
         approveCount: { increment: verdict === "APPROVE" ? 1 : -1 },
         rejectCount: { increment: verdict === "REJECT" ? 1 : -1 },
       },
     });
+  } else {
+    isFirstVote = true;
+    await prisma.vetoVote.create({
+      data: { verdict, voterId: user.id, submissionId },
+    });
+    const field = verdict === "APPROVE" ? "approveCount" : "rejectCount";
+    updated = await prisma.questSubmission.update({
+      where: { id: submissionId },
+      data: { [field]: { increment: 1 } },
+    });
+  }
 
-    // Voter earns 2 coins for participating
+  // Voter earns 2 coins on first-time vote only (no farming via vote-flipping)
+  if (isFirstVote) {
     await prisma.user.update({
       where: { id: user.id },
       data: { coins: { increment: 2 } },
     });
-
-    await tryResolve(submission, updated);
-    checkAchievements(user.id, { votesCast: 1 }).catch(() => {});
-    return NextResponse.json({ success: true, changed: true, verdict });
   }
 
-  // New vote
-  await prisma.vetoVote.create({
-    data: { verdict, voterId: user.id, submissionId },
-  });
-
-  const field = verdict === "APPROVE" ? "approveCount" : "rejectCount";
-  const updated = await prisma.questSubmission.update({
-    where: { id: submissionId },
-    data: { [field]: { increment: 1 } },
-  });
-
-  // Voter earns 2 coins for participating
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { coins: { increment: 2 } },
-  });
-
-  await tryResolve(submission, updated);
+  await tryResolve({ ...submission, ...updated }, updated);
   checkAchievements(user.id, { votesCast: 1 }).catch(() => {});
 
-  return NextResponse.json({ success: true, verdict });
+  return NextResponse.json({ success: true, changed: !!existingVote, verdict });
 }
 
-// Try to resolve submission based on vote counts
+// Try to resolve submission based on vote counts.
+// Also re-resolves already-resolved submissions when votes change.
 async function tryResolve(
-  submission: { id: string; userId: string; questId: string; quest: { id: string; lobbyId: string | null; xpReward: number; difficulty: string } },
+  submission: QuestSub,
   updated: { approveCount: number; rejectCount: number }
 ) {
   const totalVotes = updated.approveCount + updated.rejectCount;
@@ -104,32 +105,50 @@ async function tryResolve(
   }
 
   const majorityThreshold = Math.ceil(eligibleVoters / 2);
-  if (totalVotes < majorityThreshold) return;
 
-  const approved = updated.approveCount > updated.rejectCount;
-  await resolveSubmission(submission, approved);
-}
+  // Not enough votes yet — if previously resolved, revert to PENDING
+  if (totalVotes < majorityThreshold) {
+    if (submission.vetoStatus === "APPROVED") {
+      await revertAward(submission);
+      await prisma.questSubmission.update({
+        where: { id: submission.id },
+        data: { vetoStatus: "PENDING", xpAwarded: 0, coinsAwarded: 0 },
+      });
+    } else if (submission.vetoStatus === "REJECTED") {
+      await prisma.questSubmission.update({
+        where: { id: submission.id },
+        data: { vetoStatus: "PENDING" },
+      });
+    }
+    return;
+  }
 
-// Award XP and finalize submission
-async function resolveSubmission(
-  submission: { id: string; userId: string; questId: string; quest: { id: string; lobbyId: string | null; xpReward: number; difficulty: string } },
-  approved: boolean
-) {
-  if (!approved) {
+  const shouldApprove = updated.approveCount > updated.rejectCount;
+  const currentStatus = submission.vetoStatus;
+
+  if (shouldApprove && currentStatus !== "APPROVED") {
+    if (currentStatus === "REJECTED" || currentStatus === "PENDING") {
+      await applyApproval(submission);
+    }
+  } else if (!shouldApprove && currentStatus !== "REJECTED") {
+    if (currentStatus === "APPROVED") {
+      await revertAward(submission);
+    }
     await prisma.questSubmission.update({
       where: { id: submission.id },
-      data: { vetoStatus: "REJECTED", xpAwarded: 0 },
+      data: { vetoStatus: "REJECTED", xpAwarded: 0, coinsAwarded: 0 },
     });
     createNotification({
       userId: submission.userId,
       type: "submission_rejected",
       title: "Submission татгалзагдлаа",
       body: "Таны submission олонхийн саналаар татгалзагдлаа",
-      metadata: { submissionId: submission.id },
+      metadata: { submissionId: submission.id, questId: submission.questId },
     }).catch(() => {});
-    return;
   }
+}
 
+async function applyApproval(submission: QuestSub) {
   const { xpAwarded, coinsAwarded } = await awardQuestXP({
     userId: submission.userId,
     questId: submission.questId,
@@ -148,6 +167,44 @@ async function resolveSubmission(
     type: "submission_approved",
     title: "Submission зөвшөөрөгдлөө!",
     body: `+${xpAwarded} XP, +${coinsAwarded} coins авлаа`,
-    metadata: { submissionId: submission.id, xpAwarded, coinsAwarded },
+    metadata: { submissionId: submission.id, questId: submission.questId, xpAwarded, coinsAwarded },
   }).catch(() => {});
+}
+
+// Revert XP/coins/level/xpInLobby from a previously approved submission.
+// Streak is left as-is (one-off edge case not worth the complexity).
+async function revertAward(submission: QuestSub) {
+  const sub = await prisma.questSubmission.findUnique({
+    where: { id: submission.id },
+    select: { xpAwarded: true, coinsAwarded: true, userId: true },
+  });
+  if (!sub || (sub.xpAwarded === 0 && sub.coinsAwarded === 0)) return;
+
+  const user = await prisma.user.findUnique({
+    where: { id: sub.userId },
+    select: { xp: true },
+  });
+  if (!user) return;
+
+  const newXp = Math.max(0, user.xp - sub.xpAwarded);
+  const newLevel = calculateLevel(newXp);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: sub.userId },
+      data: {
+        xp: newXp,
+        coins: { decrement: sub.coinsAwarded },
+        level: newLevel,
+      },
+    }),
+    ...(submission.quest.lobbyId
+      ? [
+          prisma.lobbyMember.updateMany({
+            where: { userId: sub.userId, lobbyId: submission.quest.lobbyId },
+            data: { xpInLobby: { decrement: sub.xpAwarded } },
+          }),
+        ]
+      : []),
+  ]);
 }

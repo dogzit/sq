@@ -17,20 +17,20 @@ datasource db {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  username      String   @unique
-  displayName   String
-  avatarUrl     String?
-  bio           String?
-  passwordHash  String
-  xp            Int      @default(0)
-  coins         Int      @default(0)
-  level         Int      @default(1)
-  streak        Int      @default(0)
-  lastStreakDate DateTime?
-  lastActiveAt  DateTime @default(now())
-  createdAt     DateTime @default(now())
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
+  displayName       String
+  avatarUrl         String?
+  bio               String?
+  passwordHash      String
+  xp                Int       @default(0)
+  coins             Int       @default(0)
+  level             Int       @default(1)
+  streak            Int       @default(0)
+  lastStreakDate    DateTime?
+  lastActiveAt      DateTime  @default(now())
+  createdAt         DateTime  @default(now())
   emailVerified     Boolean   @default(false)
   isAdmin           Boolean   @default(false)
   birthDate         DateTime?
@@ -44,28 +44,59 @@ model User {
   updatedAt         DateTime  @updatedAt
 
   // ── Relations ──
-  otpCodes        OtpCode[]
-  ownedLobbies    Lobby[]           @relation("LobbyOwner")
-  lobbyMembers    LobbyMember[]
-  submissions     QuestSubmission[]
-  votes           VetoVote[]
-  locations       UserLocation[]
-  sentInvites     LobbyInvite[]     @relation("InviteSender")
-  receivedInvites LobbyInvite[]     @relation("InviteReceiver")
-  purchasedItems  UserShopItem[]
-  sentEffects     ActiveEffect[]    @relation("EffectCaster")
-  receivedEffects ActiveEffect[]    @relation("EffectTarget")
-  albums          Album[]
-  checkIns        DailyCheckIn[]
-  achievements    UserAchievement[]
-  notifications   Notification[]
-  createdTrivia    TriviaQuestion[]   @relation("TriviaCreator")
-  reviewedTrivia   TriviaQuestion[]   @relation("TriviaReviewer")
-  triviaAnswers    UserTriviaAnswer[]
+  otpCodes            OtpCode[]
+  ownedLobbies        Lobby[]            @relation("LobbyOwner")
+  lobbyMembers        LobbyMember[]
+  submissions         QuestSubmission[]
+  votes               VetoVote[]
+  locations           UserLocation[]
+  sentInvites         LobbyInvite[]      @relation("InviteSender")
+  receivedInvites     LobbyInvite[]      @relation("InviteReceiver")
+  purchasedItems      UserShopItem[]
+  sentEffects         ActiveEffect[]     @relation("EffectCaster")
+  receivedEffects     ActiveEffect[]     @relation("EffectTarget")
+  albums              Album[]
+  checkIns            DailyCheckIn[]
+  achievements        UserAchievement[]
+  notifications       Notification[]
+  createdTrivia       TriviaQuestion[]   @relation("TriviaCreator")
+  reviewedTrivia      TriviaQuestion[]   @relation("TriviaReviewer")
+  triviaAnswers       UserTriviaAnswer[]
+  sentFriendships     Friendship[]       @relation("FriendshipRequester")
+  receivedFriendships Friendship[]       @relation("FriendshipAddressee")
+  hostedMatches       GameMatch[]        @relation("MatchHost")
+  guestedMatches      GameMatch[]        @relation("MatchGuest")
+  wonMatches          GameMatch[]        @relation("MatchWinner")
+  lobbyMessages       LobbyMessage[]
 
   @@index([xp(sort: Desc)])
   @@index([coins(sort: Desc)])
   @@index([email])
+  @@index([username])
+}
+
+// ── Friendship system ──
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  requester User @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendshipAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@index([requesterId, status])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  BLOCKED
 }
 
 model PendingSignup {
@@ -99,19 +130,20 @@ model OtpCode {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model Lobby {
-  id          String   @id @default(cuid())
-  name        String
-  code        String   @unique           // 6-char uppercase invite code
-  isActive    Boolean  @default(true)
-  maxMembers  Int      @default(10)
-  ownerId     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique // 6-char uppercase invite code
+  isActive   Boolean  @default(true)
+  maxMembers Int      @default(10)
+  ownerId    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  owner      User          @relation("LobbyOwner", fields: [ownerId], references: [id])
-  members    LobbyMember[]
-  invites    LobbyInvite[]
-  quests     Quest[]
+  owner    User           @relation("LobbyOwner", fields: [ownerId], references: [id])
+  members  LobbyMember[]
+  invites  LobbyInvite[]
+  quests   Quest[]
+  messages LobbyMessage[]
 
   @@index([code])
   @@index([ownerId])
@@ -123,7 +155,7 @@ model LobbyMember {
   role           LobbyRole      @default(MEMBER)
   characterClass CharacterClass @default(TANK)
   xpInLobby      Int            @default(0)
-  customTitle    String?        // purchased neon title, e.g. "Quest Master"
+  customTitle    String? // purchased neon title, e.g. "Quest Master"
   joinedAt       DateTime       @default(now())
 
   userId  String
@@ -133,7 +165,7 @@ model LobbyMember {
   lobby Lobby @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
 
   @@unique([userId, lobbyId])
-  @@index([lobbyId, xpInLobby(sort: Desc)])  // leaderboard query
+  @@index([lobbyId, xpInLobby(sort: Desc)]) // leaderboard query
 }
 
 enum LobbyRole {
@@ -145,21 +177,21 @@ enum LobbyRole {
 /// Character class chosen when joining a lobby
 /// Each class gives bonus XP for matching quest categories
 enum CharacterClass {
-  TANK    // +25% XP on Outdoor / Fitness quests
-  MAGE    // +25% XP on Trivia / Q&A
-  CLOWN   // +25% XP on Funny / Social quests
+  TANK // +25% XP on Outdoor / Fitness quests
+  MAGE // +25% XP on Trivia / Q&A
+  CLOWN // +25% XP on Funny / Social quests
 }
 
 model LobbyInvite {
   id         String       @id @default(cuid())
   status     InviteStatus @default(PENDING)
   senderId   String
-  receiverId String?      // null = open link / code invite
+  receiverId String? // null = open link / code invite
   lobbyId    String
   expiresAt  DateTime
   createdAt  DateTime     @default(now())
 
-  sender   User  @relation("InviteSender",  fields: [senderId],   references: [id])
+  sender   User  @relation("InviteSender", fields: [senderId], references: [id])
   receiver User? @relation("InviteReceiver", fields: [receiverId], references: [id])
   lobby    Lobby @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
 
@@ -179,24 +211,24 @@ enum InviteStatus {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model Quest {
-  id          String          @id @default(cuid())
-  title       String
-  description String
-  xpReward    Int             @default(50)
-  coinReward  Int             @default(0)
-  difficulty  QuestDifficulty @default(MEDIUM)
-  questType   QuestType       @default(DAILY)
-  isAiGenerated Boolean       @default(false)
+  id            String          @id @default(cuid())
+  title         String
+  description   String
+  xpReward      Int             @default(50)
+  coinReward    Int             @default(0)
+  difficulty    QuestDifficulty @default(MEDIUM)
+  questType     QuestType       @default(DAILY)
+  isAiGenerated Boolean         @default(false)
   /// AI-аар тогтоосон bonus class — тухайн класс quest биелүүлбэл +25% XP
-  bonusClass  CharacterClass?
-  status      QuestStatus     @default(ACTIVE)
-  startsAt    DateTime        @default(now())
-  expiresAt   DateTime
-  lobbyId     String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  bonusClass    CharacterClass?
+  status        QuestStatus     @default(ACTIVE)
+  startsAt      DateTime        @default(now())
+  expiresAt     DateTime
+  lobbyId       String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
-  lobby       Lobby?          @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  lobby       Lobby?            @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
   submissions QuestSubmission[]
 
   @@index([lobbyId, status])
@@ -204,8 +236,8 @@ model Quest {
 }
 
 enum QuestType {
-  DAILY       // normal daily quest
-  EMERGENCY   // 15-min flash mob — high XP
+  DAILY // normal daily quest
+  EMERGENCY // 15-min flash mob — high XP
 }
 
 enum QuestDifficulty {
@@ -226,23 +258,23 @@ enum QuestStatus {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model QuestSubmission {
-  id            String       @id @default(cuid())
-  mediaUrl      String
-  mediaType     MediaType    @default(IMAGE)
-  caption       String?
+  id           String     @id @default(cuid())
+  mediaUrl     String
+  mediaType    MediaType  @default(IMAGE)
+  caption      String?
   /// Veto status — starts PENDING, resolved after vote window
-  vetoStatus    VetoStatus   @default(PENDING)
-  vetoDeadline  DateTime?    // when voting ends
-  approveCount  Int          @default(0)
-  rejectCount   Int          @default(0)
-  xpAwarded     Int          @default(0)
-  coinsAwarded  Int          @default(0)
-  userId        String
-  questId       String
-  createdAt     DateTime     @default(now())
+  vetoStatus   VetoStatus @default(PENDING)
+  vetoDeadline DateTime? // when voting ends
+  approveCount Int        @default(0)
+  rejectCount  Int        @default(0)
+  xpAwarded    Int        @default(0)
+  coinsAwarded Int        @default(0)
+  userId       String
+  questId      String
+  createdAt    DateTime   @default(now())
 
-  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  quest      Quest        @relation(fields: [questId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quest      Quest       @relation(fields: [questId], references: [id], onDelete: Cascade)
   votes      VetoVote[]
   albumPhoto AlbumPhoto?
 
@@ -263,19 +295,19 @@ model VetoVote {
   voter      User            @relation(fields: [voterId], references: [id], onDelete: Cascade)
   submission QuestSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
-  @@unique([voterId, submissionId])   // one vote per person per submission
+  @@unique([voterId, submissionId]) // one vote per person per submission
   @@index([submissionId])
 }
 
 enum Verdict {
-  APPROVE   // "Үнэн"
-  REJECT    // "Худал"
+  APPROVE // "Үнэн"
+  REJECT // "Худал"
 }
 
 enum VetoStatus {
-  PENDING    // waiting for votes
-  APPROVED   // 50%+ approved → XP granted
-  REJECTED   // 50%+ rejected → no XP
+  PENDING // waiting for votes
+  APPROVED // 50%+ approved → XP granted
+  REJECTED // 50%+ rejected → no XP
 }
 
 enum MediaType {
@@ -326,16 +358,16 @@ enum VideoStatus {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model UserLocation {
-  id             String    @id @default(cuid())
-  latitude       Float
-  longitude      Float
-  accuracy       Float?
-  sharing        Boolean   @default(true)
+  id           String   @id @default(cuid())
+  latitude     Float
+  longitude    Float
+  accuracy     Float?
+  sharing      Boolean  @default(true)
   /// Fog of War: user can see friends' locations until this time
   /// Set to now()+1h each time they complete & get approved on a quest
-  visibleUntil   DateTime  @default(now())
-  userId         String
-  updatedAt      DateTime  @updatedAt
+  visibleUntil DateTime @default(now())
+  userId       String
+  updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -356,7 +388,7 @@ model ShopItem {
   id          String       @id @default(cuid())
   name        String       @unique
   description String
-  price       Int                         // Coin cost
+  price       Int // Coin cost
   itemType    ShopItemType
   /// For TITLE: the display text. For BUFF/DEBUFF: effect multiplier (e.g. 0.75 = -25%)
   value       String
@@ -368,10 +400,10 @@ model ShopItem {
 }
 
 enum ShopItemType {
-  TITLE        // neon title displayed in lobby
-  BUFF         // boost a friend's XP
-  DEBUFF       // reduce an enemy's XP
-  XP_BOOST     // self-applied XP boost
+  TITLE // neon title displayed in lobby
+  BUFF // boost a friend's XP
+  DEBUFF // reduce an enemy's XP
+  XP_BOOST // self-applied XP boost
   QUEST_REROLL // reroll a daily quest
   AVATAR_FRAME // decorative avatar frame
 }
@@ -396,9 +428,9 @@ model ActiveEffect {
   effectType EffectType
   /// XP multiplier: 1.25 = +25% buff, 0.75 = -25% debuff
   multiplier Float
-  casterId   String     // who cast it
-  targetId   String     // who receives it
-  expiresAt  DateTime   // effect duration
+  casterId   String // who cast it
+  targetId   String // who receives it
+  expiresAt  DateTime // effect duration
   createdAt  DateTime   @default(now())
 
   caster User @relation("EffectCaster", fields: [casterId], references: [id], onDelete: Cascade)
@@ -409,8 +441,8 @@ model ActiveEffect {
 }
 
 enum EffectType {
-  BUFF     // "Ивээх" — boost target's XP
-  DEBUFF   // "Хараах" — reduce target's XP
+  BUFF // "Ивээх" — boost target's XP
+  DEBUFF // "Хараах" — reduce target's XP
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -436,24 +468,28 @@ model DailyCheckIn {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model Achievement {
-  id          String          @id @default(cuid())
-  key         String          @unique
+  id          String     @id @default(cuid())
+  key         String     @unique
   name        String
   description String
   iconEmoji   String
-  xpReward    Int             @default(0)
-  coinReward  Int             @default(0)
-  rarity      ItemRarity      @default(COMMON)
-  createdAt   DateTime        @default(now())
+  xpReward    Int        @default(0)
+  coinReward  Int        @default(0)
+  rarity      ItemRarity @default(COMMON)
+  createdAt   DateTime   @default(now())
 
   unlocks UserAchievement[]
 }
 
 model UserAchievement {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
   achievementId String
-  unlockedAt    DateTime @default(now())
+  unlockedAt    DateTime  @default(now())
+  // Default true so existing rows (created before manual-claim was introduced)
+  // are treated as already-claimed. New rows are explicitly set to false.
+  claimed       Boolean   @default(true)
+  claimedAt     DateTime?
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
@@ -493,18 +529,18 @@ model Notification {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 model TriviaQuestion {
-  id           String         @id @default(cuid())
+  id           String       @id @default(cuid())
   question     String
   options      String[]
   correctIndex Int
-  coinReward   Int            @default(10)
-  xpReward     Int            @default(20)
-  status       TriviaStatus   @default(PENDING)
+  coinReward   Int          @default(10)
+  xpReward     Int          @default(20)
+  status       TriviaStatus @default(PENDING)
   rejectReason String?
   reviewedAt   DateTime?
   reviewedById String?
   creatorId    String
-  createdAt    DateTime       @default(now())
+  createdAt    DateTime     @default(now())
 
   creator    User               @relation("TriviaCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   reviewedBy User?              @relation("TriviaReviewer", fields: [reviewedById], references: [id])
@@ -536,4 +572,61 @@ model UserTriviaAnswer {
   @@unique([userId, questionId])
   @@index([userId])
   @@index([questionId])
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  12. 1v1 COIN-BET GAMES (RPS / TTT / Coin Flip)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model GameMatch {
+  id        String          @id @default(cuid())
+  gameType  GameType
+  status    GameMatchStatus @default(PENDING)
+  hostId    String
+  guestId   String
+  betAmount Int
+  winnerId  String?
+  isDraw    Boolean         @default(false)
+  state     Json?
+  createdAt DateTime        @default(now())
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  host   User  @relation("MatchHost", fields: [hostId], references: [id], onDelete: Cascade)
+  guest  User  @relation("MatchGuest", fields: [guestId], references: [id], onDelete: Cascade)
+  winner User? @relation("MatchWinner", fields: [winnerId], references: [id])
+
+  @@index([hostId, status])
+  @@index([guestId, status])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+enum GameType {
+  RPS
+  TTT
+  COIN_FLIP
+}
+
+enum GameMatchStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  13. LOBBY CHAT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+model LobbyMessage {
+  id        String   @id @default(cuid())
+  lobbyId   String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  lobby Lobby @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lobbyId, createdAt(sort: Desc)])
 }

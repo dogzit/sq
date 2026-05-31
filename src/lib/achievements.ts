@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
-import { calculateLevel } from "@/lib/economy";
 
-/** Check and award achievements for a user after an action */
+/**
+ * Check achievements and create UserAchievement rows as **unclaimed**.
+ * Rewards are NOT granted here — the user must call the claim endpoint.
+ */
 export async function checkAchievements(userId: string, context: {
   questCompleted?: boolean;
   isEmergencyQuest?: boolean;
@@ -30,24 +32,8 @@ export async function checkAchievements(userId: string, context: {
     const ach = achievementMap.get(key);
     if (!ach || unlockedIds.has(ach.id)) return;
 
-    await prisma.$transaction(async (tx) => {
-      await tx.userAchievement.create({
-        data: { userId, achievementId: ach.id },
-      });
-      if (ach.xpReward > 0 || ach.coinReward > 0) {
-        const userBefore = await tx.user.findUnique({
-          where: { id: userId },
-          select: { xp: true },
-        });
-        const newXp = (userBefore?.xp ?? 0) + ach.xpReward;
-        await tx.user.update({
-          where: { id: userId },
-          data: {
-            ...(ach.xpReward > 0 && { xp: newXp, level: calculateLevel(newXp) }),
-            ...(ach.coinReward > 0 && { coins: { increment: ach.coinReward } }),
-          },
-        });
-      }
+    await prisma.userAchievement.create({
+      data: { userId, achievementId: ach.id, claimed: false, claimedAt: null },
     });
     unlockedIds.add(ach.id);
     unlocked.push(key);

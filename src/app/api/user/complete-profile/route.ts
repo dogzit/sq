@@ -14,13 +14,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Шаардлагатай талбарууд дутуу байна" }, { status: 400 });
   }
 
-  const wasComplete = (
-    await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { isProfileComplete: true },
-    })
-  )?.isProfileComplete;
-
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -40,10 +33,9 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Anх удаа profile бүрэн бөглөсөн тохиолдолд achievement шалгана
-  const unlocked = !wasComplete
-    ? await checkAchievements(user.id, { profileCompleted: true })
-    : [];
+  // checkAchievements is idempotent via unlockedIds dedup, so always run.
+  // Fixes users whose profile was already complete before the achievement was seeded.
+  const unlocked = await checkAchievements(user.id, { profileCompleted: true });
 
   return NextResponse.json({ ...updated, unlockedAchievements: unlocked });
 }

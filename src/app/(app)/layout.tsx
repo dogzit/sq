@@ -2,6 +2,7 @@ import BottomNav from "@/components/BottomNav";
 import InstallPrompt from "@/components/InstallPrompt";
 import ProfileCompleteModal from "@/components/ProfileCompleteModal";
 import BirthdayPopup from "@/components/BirthdayPopup";
+import RealtimeProvider from "@/components/RealtimeProvider";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,6 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <BottomNav />
       <ProfileCompleteModal />
       <BirthdayPopup />
+      <RealtimeProvider />
     </div>
   );
 }

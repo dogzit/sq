@@ -6,6 +6,7 @@ import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import Link from "next/link";
 import { toast } from "sonner";
+import LobbyChat from "@/components/LobbyChat";
 
 interface LobbyDetail {
   id: string;
@@ -23,7 +24,7 @@ interface LobbyDetail {
 export default function LobbyDetailPage() {
   const params = useParams();
   const [lobby, setLobby] = useState<LobbyDetail | null>(null);
-  const [tab, setTab] = useState<"members" | "quests" | "trivia">("members");
+  const [tab, setTab] = useState<"members" | "chat" | "quests" | "trivia">("members");
   const [generating, setGenerating] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteUsername, setInviteUsername] = useState("");
@@ -79,6 +80,7 @@ export default function LobbyDetailPage() {
 
   const tabs = [
     { key: "members", label: "Members", count: lobby.members.length },
+    { key: "chat", label: "Chat", count: null },
     { key: "quests", label: "Quests", count: lobby.quests.length },
     { key: "trivia", label: "Trivia", count: null },
   ] as const;
@@ -173,6 +175,8 @@ export default function LobbyDetailPage() {
               ))}
             </div>
           )}
+
+          {tab === "chat" && <LobbyChat lobbyId={lobby.id} />}
 
           {tab === "quests" && (
             <div className="space-y-2">
