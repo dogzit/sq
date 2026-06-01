@@ -41,11 +41,11 @@ export default function PushToggle() {
         await unsubscribeFromPush();
         toast.success("Push notification идэвхгүй боллоо");
       } else {
-        const ok = await subscribeToPush();
-        if (!ok) {
-          toast.error("Permission олгогдсонгүй");
-        } else {
+        const res = await subscribeToPush();
+        if (res.ok) {
           toast.success("Push notification идэвхжлээ");
+        } else {
+          toast.error(res.message);
         }
       }
       await refresh();

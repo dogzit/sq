@@ -46,13 +46,17 @@ export default function PushPermissionPrompt() {
   async function enable() {
     setBusy(true);
     try {
-      const ok = await subscribeToPush();
-      if (ok) {
+      const res = await subscribeToPush();
+      if (res.ok) {
         toast.success("Push notification идэвхжлээ");
+        setVisible(false);
       } else {
-        toast.error("Permission олгогдсонгүй");
+        toast.error(res.message);
+        // Hide only if there's nothing the user can do right now
+        if (res.reason === "unsupported" || res.reason === "ios-needs-install") {
+          setVisible(false);
+        }
       }
-      setVisible(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Алдаа гарлаа");
     } finally {
