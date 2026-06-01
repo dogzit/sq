@@ -49,6 +49,8 @@ export default function QuestDetailPage() {
   const editFileRef = useRef<HTMLInputElement>(null);
 
   const [quest, setQuest] = useState<Quest | null>(null);
+  const [questLoading, setQuestLoading] = useState(true);
+  const [questError, setQuestError] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState("");
@@ -70,12 +72,20 @@ export default function QuestDetailPage() {
   }, [questId]);
 
   useEffect(() => {
-    fetch(`/api/quests`)
-      .then((r) => r.json())
-      .then((d) => {
-        const q = d.quests?.find((q: Quest) => q.id === questId);
-        if (q) setQuest(q);
-      });
+    setQuestLoading(true);
+    setQuestError(null);
+    fetch(`/api/quests/${questId}`)
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setQuestError(d.error || "Quest олдсонгүй");
+          setQuest(null);
+          return;
+        }
+        setQuest(d.quest || null);
+      })
+      .catch(() => setQuestError("Сүлжээний алдаа"))
+      .finally(() => setQuestLoading(false));
 
     loadSubmissions();
   }, [questId, loadSubmissions]);
@@ -365,11 +375,28 @@ export default function QuestDetailPage() {
     }
   }
 
-  if (!quest) {
+  if (questLoading) {
     return (
       <div className="flex items-center justify-center min-h-dvh">
         <div className="text-muted-foreground animate-pulse font-display">Loading...</div>
       </div>
+    );
+  }
+
+  if (!quest) {
+    return (
+      <>
+        <TopBar title="Quest" showBack />
+        <div className="px-4 py-10 max-w-2xl mx-auto">
+          <div className="game-card p-6 text-center space-y-2">
+            <div className="text-4xl">🫥</div>
+            <div className="font-display text-base font-semibold">Quest олдсонгүй</div>
+            <div className="text-sm text-muted-foreground">
+              {questError || "Энэ quest устсан эсвэл хандах эрхгүй байна."}
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
