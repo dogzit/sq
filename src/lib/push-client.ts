@@ -43,15 +43,33 @@ function isStandalone(): boolean {
   );
 }
 
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms);
+    p.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
+    );
+  });
+}
+
 async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (!pushSupported()) return null;
-  // Wait up to ~5s for the SW that layout.tsx registers on window.load
-  for (let i = 0; i < 25; i++) {
-    const reg = await navigator.serviceWorker.getRegistration("/sw.js");
-    if (reg) return reg;
-    await new Promise((r) => setTimeout(r, 200));
+  // Fast path
+  const existing = await navigator.serviceWorker.getRegistration("/sw.js");
+  if (existing) return existing;
+  // If not registered yet (e.g. user clicked before window.load), register now.
+  try {
+    const reg = await withTimeout(
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }),
+      8000,
+      "SW register"
+    );
+    return reg;
+  } catch (e) {
+    console.error("[push] SW register failed", e);
+    return null;
   }
-  return navigator.serviceWorker.ready.catch(() => null);
 }
 
 export type SubscribeResult =
@@ -104,7 +122,14 @@ export async function subscribeToPush(): Promise<SubscribeResult> {
 
   let perm: NotificationPermission;
   try {
-    perm = await Notification.requestPermission();
+    // Most browsers resolve immediately when user clicks Allow/Block; 60s is
+    // generous for slow users. Without a timeout, if the popup is dismissed
+    // without a choice (rare bug on some browsers) we'd hang forever.
+    perm = await withTimeout(
+      Promise.resolve(Notification.requestPermission()),
+      60_000,
+      "permission"
+    );
   } catch (e) {
     console.error("[push] requestPermission threw", e);
     return {
@@ -135,12 +160,16 @@ export async function subscribeToPush(): Promise<SubscribeResult> {
 
   let sub: PushSubscription | null;
   try {
-    sub = await reg.pushManager.getSubscription();
+    sub = await withTimeout(reg.pushManager.getSubscription(), 5000, "getSubscription");
     if (!sub) {
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapid),
-      });
+      sub = await withTimeout(
+        reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapid),
+        }),
+        15_000,
+        "pushManager.subscribe"
+      );
     }
   } catch (e) {
     console.error("[push] pushManager.subscribe failed", e);
@@ -152,11 +181,15 @@ export async function subscribeToPush(): Promise<SubscribeResult> {
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000);
     const res = await fetch("/api/push/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(sub.toJSON()),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       return {
