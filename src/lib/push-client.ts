@@ -55,21 +55,37 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 
 async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (!pushSupported()) return null;
-  // Fast path
-  const existing = await navigator.serviceWorker.getRegistration("/sw.js");
-  if (existing) return existing;
-  // If not registered yet (e.g. user clicked before window.load), register now.
-  try {
-    const reg = await withTimeout(
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }),
-      8000,
-      "SW register"
-    );
-    return reg;
-  } catch (e) {
-    console.error("[push] SW register failed", e);
-    return null;
+
+  // 1) Try any existing registration scoped to the current page.
+  //    Passing no arg is more reliable across browsers (esp. iOS) than passing "/sw.js".
+  let reg = await navigator.serviceWorker.getRegistration().catch(() => null);
+
+  // 2) Not registered yet — register now (idempotent if already registered).
+  if (!reg) {
+    try {
+      reg = await withTimeout(
+        navigator.serviceWorker.register("/sw.js", { scope: "/" }),
+        8000,
+        "SW register"
+      );
+    } catch (e) {
+      console.error("[push] SW register failed", e);
+      return null;
+    }
   }
+
+  // 3) Wait until the SW is actually active. Without an active worker,
+  //    pushManager.subscribe() can hang or fail on iOS PWAs.
+  if (reg && !reg.active) {
+    try {
+      reg = await withTimeout(navigator.serviceWorker.ready, 8000, "SW ready");
+    } catch (e) {
+      console.error("[push] SW never became ready", e);
+      return null;
+    }
+  }
+
+  return reg ?? null;
 }
 
 export type SubscribeResult =
