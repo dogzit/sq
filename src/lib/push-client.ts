@@ -53,39 +53,54 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   });
 }
 
-async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
-  if (!pushSupported()) return null;
+type RegResult =
+  | { ok: true; reg: ServiceWorkerRegistration }
+  | { ok: false; stage: "register" | "ready"; error: string };
 
-  // 1) Try any existing registration scoped to the current page.
-  //    Passing no arg is more reliable across browsers (esp. iOS) than passing "/sw.js".
+async function getRegistration(): Promise<RegResult> {
+  if (!pushSupported()) {
+    return { ok: false, stage: "register", error: "browser-unsupported" };
+  }
+
   let reg = await navigator.serviceWorker.getRegistration().catch(() => null);
 
-  // 2) Not registered yet — register now (idempotent if already registered).
   if (!reg) {
     try {
       reg = await withTimeout(
         navigator.serviceWorker.register("/sw.js", { scope: "/" }),
-        8000,
+        10_000,
         "SW register"
       );
     } catch (e) {
       console.error("[push] SW register failed", e);
-      return null;
+      return {
+        ok: false,
+        stage: "register",
+        error: e instanceof Error ? e.message : String(e),
+      };
     }
   }
 
-  // 3) Wait until the SW is actually active. Without an active worker,
-  //    pushManager.subscribe() can hang or fail on iOS PWAs.
-  if (reg && !reg.active) {
+  // Wait for an active worker; needed for pushManager.subscribe to work.
+  if (!reg.active) {
     try {
-      reg = await withTimeout(navigator.serviceWorker.ready, 8000, "SW ready");
+      reg = await withTimeout(navigator.serviceWorker.ready, 20_000, "SW ready");
     } catch (e) {
-      console.error("[push] SW never became ready", e);
-      return null;
+      console.error("[push] SW never became ready. Current state:", {
+        installing: reg.installing?.state,
+        waiting: reg.waiting?.state,
+        active: reg.active,
+        scope: reg.scope,
+      });
+      return {
+        ok: false,
+        stage: "ready",
+        error: e instanceof Error ? e.message : String(e),
+      };
     }
   }
 
-  return reg ?? null;
+  return { ok: true, reg };
 }
 
 export type SubscribeResult =
@@ -165,14 +180,18 @@ export async function subscribeToPush(): Promise<SubscribeResult> {
     };
   }
 
-  const reg = await getRegistration();
-  if (!reg) {
+  const regResult = await getRegistration();
+  if (!regResult.ok) {
     return {
       ok: false,
       reason: "no-service-worker",
-      message: "Service worker бэлэн биш байна. Хуудсыг refresh хийгээд дахин оролдоно уу",
+      message:
+        regResult.stage === "register"
+          ? "Service worker суулгаж чадсангүй. PWA-г бүрэн хааж дахин нээгээд оролдоно уу"
+          : "Service worker идэвхжих хугацаа дууслаа. PWA-г бүрэн хааж дахин нээгээд оролдоно уу",
     };
   }
+  const reg = regResult.reg;
 
   let sub: PushSubscription | null;
   try {
@@ -227,8 +246,9 @@ export async function subscribeToPush(): Promise<SubscribeResult> {
 
 export async function unsubscribeFromPush(): Promise<boolean> {
   if (!pushSupported()) return false;
-  const reg = await getRegistration();
-  if (!reg) return false;
+  const regResult = await getRegistration();
+  if (!regResult.ok) return false;
+  const reg = regResult.reg;
 
   const sub = await reg.pushManager.getSubscription();
   if (!sub) return true;
@@ -244,7 +264,8 @@ export async function unsubscribeFromPush(): Promise<boolean> {
 
 export async function currentSubscription(): Promise<PushSubscription | null> {
   if (!pushSupported()) return null;
-  const reg = await getRegistration();
+  // Don't trigger registration here — just check existing.
+  const reg = await navigator.serviceWorker.getRegistration().catch(() => null);
   if (!reg) return null;
-  return reg.pushManager.getSubscription();
+  return reg.pushManager.getSubscription().catch(() => null);
 }
