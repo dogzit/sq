@@ -5,6 +5,7 @@ import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { useUser } from "@/lib/swr";
 import { toast } from "sonner";
+import UserAvatar from "@/components/UserAvatar";
 
 interface ShopItem {
   id: string;
@@ -100,6 +101,25 @@ export default function ShopPage() {
         return;
       }
       toast.success("Title амжилттай тавигдлаа!");
+      mutateUser();
+    } catch {
+      toast.error("Сүлжээний алдаа гарлаа");
+    }
+  }
+
+  async function handleEquipFrame(purchaseId: string | null) {
+    try {
+      const res = await fetch("/api/shop/equip-frame", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ purchaseId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Зүүхэд алдаа гарлаа");
+        return;
+      }
+      toast.success(purchaseId ? "Frame зүүлээ!" : "Frame тайлагдлаа");
       mutateUser();
     } catch {
       toast.error("Сүлжээний алдаа гарлаа");
@@ -224,10 +244,26 @@ export default function ShopPage() {
                     const alreadyOwned = (item.itemType === "TITLE" || item.itemType === "AVATAR_FRAME")
                       && purchased.some((p) => p.shopItemId === item.id);
 
+                    const isFramePreview = item.itemType === "AVATAR_FRAME";
+
                     return (
                       <div key={item.id} className={`game-card p-4 ${rc.border} ${rc.glow}`}>
                         <div className="flex items-start gap-3">
-                          <div className="text-3xl flex-shrink-0">{item.iconEmoji}</div>
+                          {isFramePreview ? (
+                            <div className="flex-shrink-0">
+                              <UserAvatar
+                                user={{
+                                  displayName: user?.displayName ?? "?",
+                                  avatarUrl: user?.avatarUrl ?? null,
+                                }}
+                                size={52}
+                                linkToProfile={false}
+                                frameValue={item.value}
+                              />
+                            </div>
+                          ) : (
+                            <div className="text-3xl flex-shrink-0">{item.iconEmoji}</div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <h3 className="text-sm font-semibold">{item.name}</h3>
@@ -290,7 +326,21 @@ export default function ShopPage() {
                   return (
                     <div key={p.id} className="game-card p-4">
                       <div className="flex items-center gap-3">
-                        <div className="text-2xl flex-shrink-0">{p.item.iconEmoji}</div>
+                        {isFrame ? (
+                          <div className="flex-shrink-0">
+                            <UserAvatar
+                              user={{
+                                displayName: user?.displayName ?? "?",
+                                avatarUrl: user?.avatarUrl ?? null,
+                              }}
+                              size={44}
+                              linkToProfile={false}
+                              frameValue={p.item.value}
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-2xl flex-shrink-0">{p.item.iconEmoji}</div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold">{p.item.name}</span>
@@ -301,12 +351,21 @@ export default function ShopPage() {
                         {isTitle ? (
                           <EquipTitleButton purchase={p} onEquip={handleEquipTitle} />
                         ) : isFrame ? (
-                          <button
-                            disabled
-                            className="text-xs py-2 px-3 rounded-xl bg-secondary text-muted-foreground font-semibold cursor-not-allowed"
-                          >
-                            Удахгүй
-                          </button>
+                          (() => {
+                            const isEquipped = user?.equippedFrameValue === p.item.value;
+                            return (
+                              <button
+                                onClick={() => handleEquipFrame(isEquipped ? null : p.id)}
+                                className={`text-xs py-2 px-3 rounded-xl font-semibold transition-colors ${
+                                  isEquipped
+                                    ? "bg-neon-green/15 text-neon-green hover:bg-neon-green/25"
+                                    : "bg-neon-gold/10 text-neon-gold hover:bg-neon-gold/20"
+                                }`}
+                              >
+                                {isEquipped ? "Тайлах" : "Зүүх"}
+                              </button>
+                            );
+                          })()
                         ) : isSelfBuff ? (
                           <button
                             onClick={() => user && handleUseItem(p.id, user.id)}

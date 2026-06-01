@@ -18,6 +18,7 @@ export async function GET(request: Request) {
           select: {
             id: true, username: true, displayName: true,
             avatarUrl: true, xp: true, coins: true, level: true, streak: true,
+            equippedFrameValue: true,
           },
         },
       },

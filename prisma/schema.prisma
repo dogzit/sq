@@ -41,6 +41,8 @@ model User {
   safeModeExpires   DateTime?
   lastPushupAt      DateTime?
   pushupTotalReps   Int       @default(0)
+  /// Currently equipped avatar frame `value` (e.g. "neon-ring"). Null = none.
+  equippedFrameValue String?
   updatedAt         DateTime  @updatedAt
 
   // ── Relations ──

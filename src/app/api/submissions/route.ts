@@ -165,7 +165,7 @@ export async function GET(request: Request) {
     where: questId ? { questId } : { userId: user.id },
     include: {
       quest: true,
-      user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      user: { select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true } },
       votes: { select: { verdict: true, voterId: true } },
       _count: { select: { votes: true } },
     },

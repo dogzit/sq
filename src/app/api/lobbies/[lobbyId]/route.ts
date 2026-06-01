@@ -19,10 +19,10 @@ export async function GET(
   const lobby = await prisma.lobby.findUnique({
     where: { id: lobbyId },
     include: {
-      owner: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      owner: { select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true } },
       members: {
         include: {
-          user: { select: { id: true, username: true, displayName: true, avatarUrl: true, xp: true, level: true } },
+          user: { select: { id: true, username: true, displayName: true, avatarUrl: true, xp: true, level: true, equippedFrameValue: true } },
         },
         orderBy: { xpInLobby: "desc" },
       },

@@ -38,7 +38,7 @@ export async function GET(
     take: PAGE_SIZE,
     include: {
       user: {
-        select: { id: true, username: true, displayName: true, avatarUrl: true },
+        select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true },
       },
     },
   });
@@ -71,7 +71,7 @@ export async function POST(
     data: { lobbyId, userId: user.id, body },
     include: {
       user: {
-        select: { id: true, username: true, displayName: true, avatarUrl: true },
+        select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true },
       },
     },
   });

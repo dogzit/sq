@@ -2,15 +2,17 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import AvatarFrame, { hasFrame } from "./AvatarFrame";
 
 interface Props {
   avatarUrl?: string | null;
   displayName?: string;
   size?: number;
   onUpload?: (url: string) => void;
+  frameValue?: string | null;
 }
 
-export default function AvatarUpload({ avatarUrl, displayName = "?", size = 80, onUpload }: Props) {
+export default function AvatarUpload({ avatarUrl, displayName = "?", size = 80, onUpload, frameValue }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -57,24 +59,30 @@ export default function AvatarUpload({ avatarUrl, displayName = "?", size = 80, 
         style={{ width: size, height: size }}
         aria-label="Профайл зураг солих"
       >
-        {/* Avatar circle */}
-        <div
-          className="w-full h-full rounded-full overflow-hidden ring-2 ring-cyan-500/40 ring-offset-2 ring-offset-gray-950 transition-all group-hover:ring-cyan-400/70 group-hover:shadow-[0_0_20px_rgba(0,255,255,0.25)]"
-        >
-          {src ? (
-            <img
-              src={src}
-              alt={displayName}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-cyan-600/30 to-purple-600/30 flex items-center justify-center text-white font-bold"
-              style={{ fontSize: size * 0.35 }}
-            >
-              {initials}
-            </div>
-          )}
-        </div>
+        {/* Avatar circle (wrapped in equipped frame if any) */}
+        <AvatarFrame value={frameValue} size={size}>
+          <div
+            className={`w-full h-full rounded-full overflow-hidden transition-all ${
+              hasFrame(frameValue)
+                ? ""
+                : "ring-2 ring-cyan-500/40 ring-offset-2 ring-offset-gray-950 group-hover:ring-cyan-400/70 group-hover:shadow-[0_0_20px_rgba(0,255,255,0.25)]"
+            }`}
+          >
+            {src ? (
+              <img
+                src={src}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-cyan-600/30 to-purple-600/30 flex items-center justify-center text-white font-bold"
+                style={{ fontSize: size * 0.35 }}
+              >
+                {initials}
+              </div>
+            )}
+          </div>
+        </AvatarFrame>
 
         {/* Overlay on hover / loading */}
         <div className={`absolute inset-0 rounded-full flex items-center justify-center transition-opacity ${

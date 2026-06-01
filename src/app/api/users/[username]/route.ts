@@ -24,6 +24,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
       birthDate: true,
       interests: true,
       isProfileComplete: true,
+      equippedFrameValue: true,
       _count: {
         select: {
           submissions: true,

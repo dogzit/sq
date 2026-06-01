@@ -56,6 +56,7 @@ export async function GET(request: Request) {
       xp: true,
       streak: true,
       interests: true,
+      equippedFrameValue: true,
     },
   });
 

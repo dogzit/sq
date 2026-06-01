@@ -69,6 +69,7 @@ export async function getCurrentUser() {
       isSafeMode: true,
       safeModeExpires: true,
       isAdmin: true,
+      equippedFrameValue: true,
     },
   });
 

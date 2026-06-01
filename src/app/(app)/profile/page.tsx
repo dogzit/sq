@@ -109,6 +109,7 @@ export default function ProfilePage() {
                     avatarUrl={user?.avatarUrl}
                     displayName={user?.displayName}
                     size={80}
+                    frameValue={user?.equippedFrameValue}
                     onUpload={(url) =>
                       mutate(
                         (curr: any) => ({ ...curr, user: { ...curr?.user, avatarUrl: url } }),

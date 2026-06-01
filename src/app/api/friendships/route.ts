@@ -24,10 +24,10 @@ export async function GET(request: Request) {
     },
     include: {
       requester: {
-        select: { id: true, username: true, displayName: true, avatarUrl: true, level: true, xp: true, coins: true },
+        select: { id: true, username: true, displayName: true, avatarUrl: true, level: true, xp: true, coins: true, equippedFrameValue: true },
       },
       addressee: {
-        select: { id: true, username: true, displayName: true, avatarUrl: true, level: true, xp: true, coins: true },
+        select: { id: true, username: true, displayName: true, avatarUrl: true, level: true, xp: true, coins: true, equippedFrameValue: true },
       },
     },
     orderBy: { updatedAt: "desc" },
