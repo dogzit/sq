@@ -25,12 +25,16 @@ export async function POST(req: Request) {
   }
 
   const { xpReward, coinReward } = ua.achievement;
+  const claimedAt = new Date();
 
   const result = await prisma.$transaction(async (tx) => {
-    const updated = await tx.userAchievement.update({
-      where: { id: ua.id },
-      data: { claimed: true, claimedAt: new Date() },
+    // Atomic flip from unclaimed → claimed. If two requests race, only the
+    // first one matches; the second returns count=0 and we throw.
+    const flip = await tx.userAchievement.updateMany({
+      where: { id: ua.id, claimed: false },
+      data: { claimed: true, claimedAt },
     });
+    if (flip.count === 0) throw new Error("ALREADY_CLAIMED");
 
     let newXp: number | null = null;
     let newLevel: number | null = null;
@@ -50,14 +54,21 @@ export async function POST(req: Request) {
       });
     }
 
-    return { updated, newXp, newLevel };
+    return { newXp, newLevel };
+  }).catch((e) => {
+    if (e instanceof Error && e.message === "ALREADY_CLAIMED") return null;
+    throw e;
   });
+
+  if (!result) {
+    return NextResponse.json({ error: "Аль хэдийн авсан" }, { status: 409 });
+  }
 
   return NextResponse.json({
     success: true,
     xpReward,
     coinReward,
     achievement: ua.achievement,
-    claimedAt: result.updated.claimedAt,
+    claimedAt,
   });
 }

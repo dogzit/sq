@@ -47,22 +47,34 @@ export async function POST() {
   const newXp = fullUser.xp + xpReward;
   const newLevel = calculateLevel(newXp);
 
-  // Save check-in and update user in transaction
-  await prisma.$transaction([
-    prisma.dailyCheckIn.create({
-      data: { userId: user.id, date: today, reward, xpReward },
-    }),
-    prisma.user.update({
-      where: { id: user.id },
-      data: {
-        coins: { increment: reward },
-        xp: newXp,
-        level: newLevel,
-        streak: newStreak,
-        lastStreakDate,
-      },
-    }),
-  ]);
+  // Save check-in and update user in transaction.
+  // The unique constraint @@unique([userId, date]) on DailyCheckIn protects
+  // against concurrent double check-ins — catch that case explicitly.
+  try {
+    await prisma.$transaction([
+      prisma.dailyCheckIn.create({
+        data: { userId: user.id, date: today, reward, xpReward },
+      }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          coins: { increment: reward },
+          xp: newXp,
+          level: newLevel,
+          streak: newStreak,
+          lastStreakDate,
+        },
+      }),
+    ]);
+  } catch (e) {
+    if (typeof e === "object" && e && "code" in e && (e as { code: string }).code === "P2002") {
+      return NextResponse.json({
+        error: "Өнөөдөр аль хэдийн check-in хийсэн байна",
+        alreadyClaimed: true,
+      }, { status: 409 });
+    }
+    throw e;
+  }
 
   return NextResponse.json({
     reward,

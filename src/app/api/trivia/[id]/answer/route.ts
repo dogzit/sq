@@ -40,26 +40,34 @@ export async function POST(
   const coinsEarned = isCorrect ? question.coinReward : 0;
   const xpEarned = isCorrect ? question.xpReward : 0;
 
-  await prisma.$transaction([
-    prisma.userTriviaAnswer.create({
-      data: {
-        userId: user.id,
-        questionId: id,
-        selectedIndex,
-        isCorrect,
-        coinsEarned,
-        xpEarned,
-      },
-    }),
-    ...(isCorrect
-      ? [
-          prisma.user.update({
-            where: { id: user.id },
-            data: { coins: { increment: coinsEarned }, xp: { increment: xpEarned } },
-          }),
-        ]
-      : []),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.userTriviaAnswer.create({
+        data: {
+          userId: user.id,
+          questionId: id,
+          selectedIndex,
+          isCorrect,
+          coinsEarned,
+          xpEarned,
+        },
+      }),
+      ...(isCorrect
+        ? [
+            prisma.user.update({
+              where: { id: user.id },
+              data: { coins: { increment: coinsEarned }, xp: { increment: xpEarned } },
+            }),
+          ]
+        : []),
+    ]);
+  } catch (e) {
+    // Unique (userId, questionId) → another concurrent answer landed first.
+    if (typeof e === "object" && e && "code" in e && (e as { code: string }).code === "P2002") {
+      return NextResponse.json({ error: "Та энэ асуултанд хариулсан байна" }, { status: 409 });
+    }
+    throw e;
+  }
 
   return NextResponse.json({
     isCorrect,

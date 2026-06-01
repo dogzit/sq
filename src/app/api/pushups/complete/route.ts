@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { computePushupStatus, COINS_PER_REP } from "@/lib/pushup";
+import { computePushupStatus, COINS_PER_REP, PUSHUP_COOLDOWN_DAYS } from "@/lib/pushup";
 
 const MAX_REPS_PER_SESSION = 200;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -24,32 +25,38 @@ export async function POST(request: Request) {
     );
   }
 
-  const current = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { lastPushupAt: true, coins: true },
-  });
-  if (!current) {
-    return NextResponse.json({ error: "Хэрэглэгч олдсонгүй" }, { status: 404 });
-  }
+  const coinsAwarded = reps * COINS_PER_REP;
+  const now = new Date();
+  const cooldownThreshold = new Date(now.getTime() - PUSHUP_COOLDOWN_DAYS * MS_PER_DAY);
 
-  const status = computePushupStatus(current.lastPushupAt);
-  if (!status.unlocked) {
+  // Atomic conditional update: only succeeds if cooldown elapsed.
+  // Prevents double-award from concurrent requests.
+  const result = await prisma.user.updateMany({
+    where: {
+      id: user.id,
+      OR: [{ lastPushupAt: null }, { lastPushupAt: { lt: cooldownThreshold } }],
+    },
+    data: {
+      coins: { increment: coinsAwarded },
+      pushupTotalReps: { increment: reps },
+      lastPushupAt: now,
+    },
+  });
+
+  if (result.count === 0) {
+    const current = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { lastPushupAt: true },
+    });
+    const status = computePushupStatus(current?.lastPushupAt ?? null, now);
     return NextResponse.json(
       { error: `Дараагийн суниалт ${status.daysLeft} хоногийн дараа` },
       { status: 403 },
     );
   }
 
-  const coinsAwarded = reps * COINS_PER_REP;
-  const now = new Date();
-
-  const updated = await prisma.user.update({
+  const updated = await prisma.user.findUnique({
     where: { id: user.id },
-    data: {
-      coins: { increment: coinsAwarded },
-      pushupTotalReps: { increment: reps },
-      lastPushupAt: now,
-    },
     select: { coins: true, pushupTotalReps: true },
   });
 
@@ -57,8 +64,8 @@ export async function POST(request: Request) {
     success: true,
     reps,
     coinsAwarded,
-    newCoinBalance: updated.coins,
-    totalReps: updated.pushupTotalReps,
+    newCoinBalance: updated?.coins ?? 0,
+    totalReps: updated?.pushupTotalReps ?? 0,
     nextUnlockAt: computePushupStatus(now, now).nextUnlockAt,
   });
 }

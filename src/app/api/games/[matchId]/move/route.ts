@@ -39,7 +39,21 @@ export async function POST(
   if (next.done) {
     const winnerId = next.winnerId;
     const isDraw = next.draw;
-    await prisma.$transaction(async (tx) => {
+    const settled = await prisma.$transaction(async (tx) => {
+      // Atomic finalize — only first request to mark COMPLETED wins.
+      // Prevents double payout if two final moves race (e.g. timeout + move).
+      const flip = await tx.gameMatch.updateMany({
+        where: { id: matchId, status: "ACTIVE" },
+        data: {
+          status: "COMPLETED",
+          winnerId: isDraw ? null : winnerId,
+          isDraw,
+          endedAt: new Date(),
+          state: next as never,
+        },
+      });
+      if (flip.count === 0) return false;
+
       if (isDraw) {
         await tx.user.update({
           where: { id: match.hostId },
@@ -55,17 +69,12 @@ export async function POST(
           data: { coins: { increment: match.betAmount * 2 } },
         });
       }
-      await tx.gameMatch.update({
-        where: { id: matchId },
-        data: {
-          status: "COMPLETED",
-          winnerId: isDraw ? null : winnerId,
-          isDraw,
-          endedAt: new Date(),
-          state: next as never,
-        },
-      });
+      return true;
     });
+
+    if (!settled) {
+      return NextResponse.json({ ok: true, done: true, alreadyFinalized: true });
+    }
 
     // Notify both players coin balance changed
     pushToUser(match.hostId, "coins:changed", {});

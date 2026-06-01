@@ -29,13 +29,10 @@ export async function POST(request: Request) {
   const item = await prisma.shopItem.findUnique({ where: { id: shopItemId } });
   if (!item) return NextResponse.json({ error: "Бараа олдсонгүй" }, { status: 404 });
 
-  // Atomic purchase: check balance, prevent duplicate cosmetic, deduct, create in one transaction
+  // Atomic purchase: conditional deduct (prevents stale-read double-spend),
+  // duplicate cosmetic block, then create the purchase row.
   try {
     const purchase = await prisma.$transaction(async (tx) => {
-      const freshUser = await tx.user.findUnique({ where: { id: user.id } });
-      if (!freshUser || freshUser.coins < item.price) {
-        throw new Error("INSUFFICIENT_COINS");
-      }
       // Cosmetics (TITLE, AVATAR_FRAME) are owned forever — block duplicate purchases.
       if (item.itemType === "TITLE" || item.itemType === "AVATAR_FRAME") {
         const existing = await tx.userShopItem.findFirst({
@@ -43,10 +40,12 @@ export async function POST(request: Request) {
         });
         if (existing) throw new Error("ALREADY_OWNED");
       }
-      await tx.user.update({
-        where: { id: user.id },
+      // Atomic conditional decrement — only succeeds if coins are still ≥ price.
+      const charge = await tx.user.updateMany({
+        where: { id: user.id, coins: { gte: item.price } },
         data: { coins: { decrement: item.price } },
       });
+      if (charge.count === 0) throw new Error("INSUFFICIENT_COINS");
       return tx.userShopItem.create({
         data: { userId: user.id, shopItemId: item.id },
         include: { item: true },

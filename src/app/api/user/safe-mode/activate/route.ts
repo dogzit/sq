@@ -45,20 +45,18 @@ export async function POST(req: NextRequest) {
       : now;
   const newExpiry = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
 
+  // Atomic conditional decrement — prevents two concurrent requests both
+  // reading coins ≥ cost and double-charging (which could even push coins below 0).
   const updated = await prisma.$transaction(async (tx) => {
-    const result = await tx.user.update({
-      where: { id: user.id },
+    const charge = await tx.user.updateMany({
+      where: { id: user.id, coins: { gte: cost } },
       data: {
         coins: { decrement: cost },
         isSafeMode: true,
         safeModeExpires: newExpiry,
       },
-      select: {
-        coins: true,
-        isSafeMode: true,
-        safeModeExpires: true,
-      },
     });
+    if (charge.count === 0) throw new Error("INSUFFICIENT");
 
     await tx.notification.create({
       data: {
@@ -70,8 +68,21 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return result;
+    return tx.user.findUnique({
+      where: { id: user.id },
+      select: { coins: true, isSafeMode: true, safeModeExpires: true },
+    });
+  }).catch((e) => {
+    if (e instanceof Error && e.message === "INSUFFICIENT") return null;
+    throw e;
   });
+
+  if (!updated) {
+    return NextResponse.json(
+      { error: "Coin хүрэлцэхгүй байна" },
+      { status: 400 }
+    );
+  }
 
   return NextResponse.json({
     success: true,
