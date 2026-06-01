@@ -143,7 +143,7 @@ export default function SafeModePage() {
           </div>
           <div className="flex items-start gap-2">
             <span>📵</span>
-            <span>Бусдад "Offline / Camping" статус харагдана</span>
+            <span>Бусдад &ldquo;Offline / Camping&rdquo; статус харагдана</span>
           </div>
         </div>
       </div>

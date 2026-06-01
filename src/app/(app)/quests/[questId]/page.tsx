@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { useUser } from "@/lib/swr";
@@ -44,7 +44,9 @@ interface PickedItem {
 
 export default function QuestDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const questId = params.questId as string;
+  const [rerolling, setRerolling] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const editFileRef = useRef<HTMLInputElement>(null);
 
@@ -353,6 +355,25 @@ export default function QuestDetailPage() {
     }
   }
 
+  async function handleReroll() {
+    if (!confirm("Энэ quest-ийг reroll хийх үү? Reroll-ын нэгийг ашиглана.")) return;
+    setRerolling(true);
+    try {
+      const res = await fetch(`/api/quests/${questId}/reroll`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Reroll хийж чадсангүй");
+        return;
+      }
+      toast.success("Шинэ quest-руу шилжлээ!");
+      router.replace(`/quests/${data.quest.id}`);
+    } catch {
+      toast.error("Сүлжээний алдаа");
+    } finally {
+      setRerolling(false);
+    }
+  }
+
   async function handleVote(submissionId: string, verdict: "APPROVE" | "REJECT") {
     setVotingId(submissionId);
     try {
@@ -410,11 +431,20 @@ export default function QuestDetailPage() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-neon-purple/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
             <h2 className="font-display text-lg font-bold mb-2 relative">{quest.title}</h2>
             <p className="text-sm text-muted-foreground mb-4 relative">{quest.description}</p>
-            <div className="flex items-center gap-2 relative">
+            <div className="flex items-center gap-2 relative flex-wrap">
               <span className="pill bg-neon-gold/10 text-neon-gold font-mono">⚡ {quest.xpReward}</span>
               <span className="pill bg-secondary text-muted-foreground">{quest.difficulty}</span>
               {quest.lobbyId && (
                 <span className="pill bg-neon-purple/10 text-neon-purple">Lobby Quest</span>
+              )}
+              {quest.lobbyId && !mySubmission && (
+                <button
+                  onClick={handleReroll}
+                  disabled={rerolling}
+                  className="ml-auto pill bg-neon-orange/10 text-neon-orange hover:bg-neon-orange/20 transition-colors disabled:opacity-40"
+                >
+                  {rerolling ? "..." : "🎲 Reroll"}
+                </button>
               )}
             </div>
           </div>

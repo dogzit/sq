@@ -28,7 +28,37 @@ export default function DashboardPage() {
     "/api/pushups/status",
     pushupFetcher,
   );
+  const { data: recovery, mutate: mutateRecovery } = useSWR<{
+    eligible: boolean;
+    streak?: number;
+    daysMissed?: number;
+    price?: number;
+    canAfford?: boolean;
+  }>("/api/checkin/recover-streak", pushupFetcher);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [recovering, setRecovering] = useState(false);
+
+  async function handleRecoverStreak() {
+    if (!recovery?.price) return;
+    if (!confirm(`Streak-ээ ${recovery.price} 🪙-ээр сэргээх үү?`)) return;
+    setRecovering(true);
+    try {
+      const res = await fetch("/api/checkin/recover-streak", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Сэргээж чадсангүй");
+        return;
+      }
+      toast.success(`Streak ${data.streak} хоног сэргэлээ!`);
+      mutateRecovery();
+      mutateUser();
+      mutateCheckIn();
+    } catch {
+      toast.error("Сүлжээний алдаа");
+    } finally {
+      setRecovering(false);
+    }
+  }
 
   async function handleCheckIn() {
     setCheckingIn(true);
@@ -144,6 +174,36 @@ export default function DashboardPage() {
             )}
           </div>
         </AnimatedItem>
+
+        {/* Streak Recovery */}
+        {recovery?.eligible && (
+          <AnimatedItem>
+            <div className="game-card p-4 flex items-center justify-between ring-1 ring-neon-orange/30">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="emoji-ring">🔥</div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">
+                    {recovery.streak} хоногийн streak алдах гэж байна
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {recovery.daysMissed} өдөр check-in алгассан · {recovery.price} 🪙-аар сэргээ
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleRecoverStreak}
+                disabled={recovering || !recovery.canAfford}
+                className={`text-xs px-4 py-2 rounded-xl font-semibold transition ${
+                  recovery.canAfford
+                    ? "bg-neon-orange/15 text-neon-orange hover:bg-neon-orange/25"
+                    : "bg-secondary text-muted-foreground cursor-not-allowed"
+                } disabled:opacity-40`}
+              >
+                {recovering ? "..." : recovery.canAfford ? "Сэргээх" : "Coin дутуу"}
+              </button>
+            </div>
+          </AnimatedItem>
+        )}
 
         {/* Quick Actions */}
         <AnimatedItem>

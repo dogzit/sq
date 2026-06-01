@@ -15,7 +15,26 @@ interface ChatMessage {
     username: string;
     displayName: string;
     avatarUrl: string | null;
+    equippedFrameValue?: string | null;
   };
+  replyTo?: {
+    id: string;
+    body: string;
+    user: { id: string; username: string; displayName: string };
+  } | null;
+}
+
+function renderBodyWithMentions(body: string) {
+  const parts = body.split(/(@[a-zA-Z0-9_]+)/g);
+  return parts.map((p, i) =>
+    p.startsWith("@") ? (
+      <span key={i} className="font-semibold underline">
+        {p}
+      </span>
+    ) : (
+      <span key={i}>{p}</span>
+    )
+  );
 }
 
 export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
@@ -24,7 +43,9 @@ export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Initial load
   useEffect(() => {
@@ -71,7 +92,7 @@ export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
       const res = await fetch(`/api/lobbies/${lobbyId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({ body, replyToId: replyTo?.id ?? null }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -79,6 +100,7 @@ export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
         return;
       }
       setDraft("");
+      setReplyTo(null);
       if (d.message) {
         setMessages((prev) =>
           prev.find((p) => p.id === d.message.id) ? prev : [...prev, d.message]
@@ -87,6 +109,11 @@ export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
     } finally {
       setSending(false);
     }
+  }
+
+  function startReply(m: ChatMessage) {
+    setReplyTo(m);
+    inputRef.current?.focus();
   }
 
   return (
@@ -113,20 +140,52 @@ export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
                 <div className="w-7 flex-shrink-0">
                   {showAvatar && !mine && <UserAvatar user={m.user} size={28} />}
                 </div>
-                <div className={`max-w-[75%] ${mine ? "items-end" : "items-start"} flex flex-col`}>
+                <div className={`max-w-[75%] ${mine ? "items-end" : "items-start"} flex flex-col group`}>
                   {showAvatar && !mine && (
                     <div className="text-[10px] text-muted-foreground mb-0.5 px-1">
                       {m.user.displayName}
                     </div>
                   )}
-                  <div
-                    className={`px-3 py-2 rounded-2xl text-sm break-words ${
-                      mine
-                        ? "bg-neon-purple text-white rounded-br-md"
-                        : "bg-secondary text-foreground rounded-bl-md"
-                    }`}
-                  >
-                    {m.body}
+                  {m.replyTo && (
+                    <div
+                      className={`text-[10px] mb-0.5 px-2 py-1 rounded-lg border-l-2 max-w-full ${
+                        mine
+                          ? "bg-neon-purple/10 border-neon-purple/60 text-neon-purple/80"
+                          : "bg-secondary/60 border-muted-foreground/40 text-muted-foreground"
+                      }`}
+                    >
+                      <div className="font-semibold truncate">↪ {m.replyTo.user.displayName}</div>
+                      <div className="truncate opacity-80">{m.replyTo.body}</div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    {mine && (
+                      <button
+                        onClick={() => startReply(m)}
+                        className="opacity-0 group-hover:opacity-100 text-[10px] text-muted-foreground hover:text-foreground transition"
+                        aria-label="Reply"
+                      >
+                        ↩
+                      </button>
+                    )}
+                    <div
+                      className={`px-3 py-2 rounded-2xl text-sm break-words ${
+                        mine
+                          ? "bg-neon-purple text-white rounded-br-md"
+                          : "bg-secondary text-foreground rounded-bl-md"
+                      }`}
+                    >
+                      {renderBodyWithMentions(m.body)}
+                    </div>
+                    {!mine && (
+                      <button
+                        onClick={() => startReply(m)}
+                        className="opacity-0 group-hover:opacity-100 text-[10px] text-muted-foreground hover:text-foreground transition"
+                        aria-label="Reply"
+                      >
+                        ↩
+                      </button>
+                    )}
                   </div>
                   <div className="text-[9px] text-muted-foreground mt-0.5 px-1">
                     {new Date(m.createdAt).toLocaleTimeString([], {
@@ -141,14 +200,32 @@ export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
         )}
       </div>
 
+      {replyTo && (
+        <div className="px-3 py-2 border-t border-border bg-neon-purple/5 flex items-center gap-2">
+          <div className="border-l-2 border-neon-purple/60 pl-2 flex-1 min-w-0">
+            <div className="text-[10px] font-semibold text-neon-purple">
+              ↪ {replyTo.user.displayName}-д хариулж байна
+            </div>
+            <div className="text-[11px] text-muted-foreground truncate">{replyTo.body}</div>
+          </div>
+          <button
+            onClick={() => setReplyTo(null)}
+            className="w-6 h-6 rounded-full bg-secondary text-muted-foreground hover:bg-secondary/80"
+            aria-label="Болих"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <form
         onSubmit={send}
         className="flex gap-2 p-2 border-t border-border bg-background/50"
       >
         <input
+          ref={inputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Зурвас бичих..."
+          placeholder={replyTo ? `${replyTo.user.displayName}-д хариулах...` : "Зурвас бичих... (@username)"}
           maxLength={500}
           className="flex-1 bg-secondary border border-border rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 placeholder:text-muted-foreground/50"
         />

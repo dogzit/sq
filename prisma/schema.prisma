@@ -645,10 +645,14 @@ model LobbyMessage {
   lobbyId   String
   userId    String
   body      String
+  /// Optional reply target (another message in the same lobby).
+  replyToId String?
   createdAt DateTime @default(now())
 
-  lobby Lobby @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lobby   Lobby          @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo LobbyMessage?  @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies LobbyMessage[] @relation("MessageReply")
 
   @@index([lobbyId, createdAt(sort: Desc)])
 }

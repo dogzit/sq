@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
@@ -26,6 +27,8 @@ const typeIcons: Record<string, string> = {
   game_challenge: "🎮",
   game_accepted: "🎮",
   game_declined: "❌",
+  chat_mention: "📣",
+  chat_reply: "💬",
 };
 
 function notificationHref(type: string, metadata: Record<string, unknown> | null | undefined): string | null {
@@ -46,6 +49,8 @@ function notificationHref(type: string, metadata: Record<string, unknown> | null
     case "quest_assigned":
       return questId ? `/quests/${questId}` : null;
     case "lobby_invite":
+    case "chat_mention":
+    case "chat_reply":
       return lobbyId ? `/lobbies/${lobbyId}` : "/lobbies";
     case "friend_request":
     case "friend_accepted":
@@ -67,9 +72,51 @@ function notificationHref(type: string, metadata: Record<string, unknown> | null
   }
 }
 
+type Notif = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+  metadata: Record<string, unknown> | null;
+};
+
+function dayBucket(d: Date): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const y = new Date(today);
+  y.setDate(y.getDate() - 1);
+  const week = new Date(today);
+  week.setDate(week.getDate() - 7);
+  const t = new Date(d);
+  t.setHours(0, 0, 0, 0);
+  if (t.getTime() === today.getTime()) return "Өнөөдөр";
+  if (t.getTime() === y.getTime()) return "Өчигдөр";
+  if (t > week) return "Энэ долоо хоног";
+  return "Хуучин";
+}
+
 export default function NotificationsPage() {
-  const { notifications, isLoading, mutate } = useNotifications();
+  const { notifications, isLoading, mutate, unreadCount } = useNotifications();
   const router = useRouter();
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+
+  const filtered: Notif[] = useMemo(() => {
+    if (filter === "unread") return notifications.filter((n: Notif) => !n.read);
+    return notifications;
+  }, [notifications, filter]);
+
+  const groups = useMemo(() => {
+    const out: { label: string; items: Notif[] }[] = [];
+    for (const n of filtered) {
+      const label = dayBucket(new Date(n.createdAt));
+      const last = out[out.length - 1];
+      if (last && last.label === label) last.items.push(n);
+      else out.push({ label, items: [n] });
+    }
+    return out;
+  }, [filtered]);
 
   async function markAllRead() {
     await fetch("/api/notifications", {
@@ -114,40 +161,79 @@ export default function NotificationsPage() {
 
       <AnimatedList className="px-4 py-4 space-y-2 max-w-2xl mx-auto pb-24">
         <AnimatedItem><PushToggle /></AnimatedItem>
+
+        {/* Filter tabs */}
+        {notifications.length > 0 && (
+          <AnimatedItem>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilter("all")}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                  filter === "all"
+                    ? "bg-neon-purple text-white"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Бүгд ({notifications.length})
+              </button>
+              <button
+                onClick={() => setFilter("unread")}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                  filter === "unread"
+                    ? "bg-neon-purple text-white"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Уншаагүй ({unreadCount})
+              </button>
+            </div>
+          </AnimatedItem>
+        )}
+
         {isLoading ? (
           <AnimatedItem><SkeletonList count={5} /></AnimatedItem>
-        ) : notifications.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <AnimatedItem>
             <div className="game-card p-8 text-center">
               <div className="text-3xl mb-2">🔔</div>
-              <div className="text-sm text-muted-foreground">No notifications yet</div>
+              <div className="text-sm text-muted-foreground">
+                {filter === "unread" ? "Уншаагүй мэдэгдэл алга" : "No notifications yet"}
+              </div>
             </div>
           </AnimatedItem>
         ) : (
-          notifications.map((notif: any) => (
-            <AnimatedItem key={notif.id}>
-              <button
-                onClick={() => handleClick(notif)}
-                className={`game-card p-4 w-full text-left flex items-start gap-3 transition-all ${
-                  !notif.read ? "border-neon-purple/30 bg-neon-purple/5" : "opacity-60"
-                }`}
-              >
-                <div className="text-xl flex-shrink-0 mt-0.5">
-                  {typeIcons[notif.type] || "🔔"}
+          groups.map((group) => (
+            <AnimatedItem key={group.label}>
+              <div className="space-y-2">
+                <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold px-1 pt-1">
+                  {group.label}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold truncate">{notif.title}</h3>
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {formatTimeAgo(new Date(notif.createdAt))}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{notif.body}</p>
-                </div>
-                {!notif.read && (
-                  <div className="w-2 h-2 rounded-full bg-neon-purple flex-shrink-0 mt-2" />
-                )}
-              </button>
+                {group.items.map((notif) => (
+                  <button
+                    key={notif.id}
+                    onClick={() => handleClick(notif)}
+                    className={`game-card p-4 w-full text-left flex items-start gap-3 transition-all ${
+                      !notif.read ? "border-neon-purple/30 bg-neon-purple/5" : "opacity-60"
+                    }`}
+                  >
+                    <div className="text-xl flex-shrink-0 mt-0.5">
+                      {typeIcons[notif.type] || "🔔"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold truncate">{notif.title}</h3>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                          {formatTimeAgo(new Date(notif.createdAt))}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{notif.body}</p>
+                    </div>
+                    {!notif.read && (
+                      <div className="w-2 h-2 rounded-full bg-neon-purple flex-shrink-0 mt-2" />
+                    )}
+                  </button>
+                ))}
+              </div>
             </AnimatedItem>
           ))
         )}

@@ -17,6 +17,7 @@ export default function QuestsPage() {
   const { quests, isLoading } = useQuests();
 
   function timeLeft(expiresAt: string) {
+    // eslint-disable-next-line react-hooks/purity -- benign read of current time for a "time left" badge
     const diff = new Date(expiresAt).getTime() - Date.now();
     if (diff <= 0) return "Expired";
     const h = Math.floor(diff / 3600000);

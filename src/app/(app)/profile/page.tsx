@@ -148,9 +148,11 @@ export default function ProfilePage() {
         <AnimatedItem>
           <div className="grid grid-cols-2 gap-2">
             {[
+              { href: "/feed", emoji: "📰", label: "Найзууд" },
               { href: "/games", emoji: "🎮", label: "Games" },
               { href: "/leaderboard", emoji: "🏆", label: "Leaderboard" },
               { href: "/achievements", emoji: "🎖️", label: "Achievements" },
+              { href: "/history", emoji: "📜", label: "Quest түүх" },
               { href: "/trivia/mine", emoji: "🧠", label: "Миний Trivia" },
               { href: "/safe-mode", emoji: "🏕️", label: "Camping Pass" },
             ].map(({ href, emoji, label }) => (

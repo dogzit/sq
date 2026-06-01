@@ -3,6 +3,7 @@ import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@/generated/prisma/client";
 
 if (typeof window === "undefined") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- ws is a CJS package; dynamic require avoids bundling it for the browser
   const ws = require("ws");
   neonConfig.webSocketConstructor = ws;
 }
