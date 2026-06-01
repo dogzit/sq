@@ -29,12 +29,19 @@ export async function POST(request: Request) {
   const item = await prisma.shopItem.findUnique({ where: { id: shopItemId } });
   if (!item) return NextResponse.json({ error: "Бараа олдсонгүй" }, { status: 404 });
 
-  // Atomic purchase: check balance, deduct, create in one transaction
+  // Atomic purchase: check balance, prevent duplicate cosmetic, deduct, create in one transaction
   try {
     const purchase = await prisma.$transaction(async (tx) => {
       const freshUser = await tx.user.findUnique({ where: { id: user.id } });
       if (!freshUser || freshUser.coins < item.price) {
         throw new Error("INSUFFICIENT_COINS");
+      }
+      // Cosmetics (TITLE, AVATAR_FRAME) are owned forever — block duplicate purchases.
+      if (item.itemType === "TITLE" || item.itemType === "AVATAR_FRAME") {
+        const existing = await tx.userShopItem.findFirst({
+          where: { userId: user.id, shopItemId: item.id },
+        });
+        if (existing) throw new Error("ALREADY_OWNED");
       }
       await tx.user.update({
         where: { id: user.id },
@@ -50,6 +57,9 @@ export async function POST(request: Request) {
   } catch (e: any) {
     if (e.message === "INSUFFICIENT_COINS") {
       return NextResponse.json({ error: "Coin хүрэхгүй байна" }, { status: 400 });
+    }
+    if (e.message === "ALREADY_OWNED") {
+      return NextResponse.json({ error: "Аль хэдийн авсан байна" }, { status: 409 });
     }
     throw e;
   }

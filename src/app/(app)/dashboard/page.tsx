@@ -10,6 +10,7 @@ import useSWR from "swr";
 import { xpForLevel, calculateLevel, levelProgress, xpToNextLevel } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "sonner";
+import UserAvatar from "@/components/UserAvatar";
 
 interface PushupStatusLite {
   unlocked: boolean;
@@ -66,19 +67,7 @@ export default function DashboardPage() {
             <div className="h-4 w-16 skeleton-shimmer rounded-lg" />
           ) : (
             <Link href="/profile" className="flex items-center gap-2 group">
-              <div className="w-7 h-7 rounded-full ring-2 ring-neon-purple/30 group-hover:ring-neon-purple/60 transition-all overflow-hidden bg-neon-purple/15 flex items-center justify-center">
-                {user?.avatarUrl ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt={user.displayName}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-xs font-bold text-neon-purple">
-                    {user?.displayName?.[0]}
-                  </span>
-                )}
-              </div>
+              <UserAvatar user={user ?? {}} size={28} linkToProfile={false} ring />
             </Link>
           )
         }

@@ -7,6 +7,7 @@ import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import Link from "next/link";
 import { toast } from "sonner";
 import LobbyChat from "@/components/LobbyChat";
+import UserAvatar from "@/components/UserAvatar";
 
 interface LobbyDetail {
   id: string;
@@ -16,7 +17,15 @@ interface LobbyDetail {
   members: {
     xpInLobby: number;
     role: string;
-    user: { id: string; username: string; displayName: string; avatarUrl: string | null; xp: number; level: number };
+    user: {
+      id: string;
+      username: string;
+      displayName: string;
+      avatarUrl: string | null;
+      xp: number;
+      level: number;
+      equippedFrameValue?: string | null;
+    };
   }[];
   quests: { id: string; title: string; xpReward: number; difficulty: string; expiresAt: string }[];
 }
@@ -160,8 +169,11 @@ export default function LobbyDetailPage() {
             <div className="space-y-2">
               {lobby.members.map((m, i) => (
                 <div key={m.user.id} className="game-card p-3.5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-neon-purple/15 ring-2 ring-neon-purple/20 flex items-center justify-center text-sm font-bold text-neon-purple">
-                    {i === 0 ? "👑" : m.user.displayName[0]}
+                  <div className="relative">
+                    <UserAvatar user={m.user} size={40} />
+                    {i === 0 && (
+                      <span className="absolute -top-1 -right-1 text-base leading-none">👑</span>
+                    )}
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold">{m.user.displayName}</div>
