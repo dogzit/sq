@@ -23,6 +23,10 @@ function urlForNotification(type: string, metadata?: Record<string, unknown>): s
   if (type === "vote_needed" && metadata.questId) return `/quests/${metadata.questId}`;
   if (type === "submission_approved" && metadata.questId) return `/quests/${metadata.questId}`;
   if (type === "submission_rejected" && metadata.questId) return `/quests/${metadata.questId}`;
+  if (type === "submission_comment" && metadata.questId) return `/quests/${metadata.questId}`;
+  if (type === "QUEST_TEMPLATE_PENDING" && metadata.questTemplateId) return `/admin/quest-templates`;
+  if (type === "QUEST_TEMPLATE_APPROVED" && metadata.questId) return `/quests/${metadata.questId}`;
+  if (type === "QUEST_TEMPLATE_REJECTED") return "/quests/mine";
   if (type === "friend_request" && metadata.username) return `/users/${metadata.username}`;
   if (type === "friend_accepted" && metadata.username) return `/users/${metadata.username}`;
   if (type === "match_invite" && metadata.matchId) return `/games/${metadata.matchId}`;

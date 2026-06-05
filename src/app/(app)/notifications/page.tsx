@@ -65,6 +65,12 @@ function notificationHref(type: string, metadata: Record<string, unknown> | null
       return "/trivia";
     case "TRIVIA_PENDING":
       return "/admin/trivia";
+    case "QUEST_TEMPLATE_APPROVED":
+      return questId ? `/quests/${questId}` : "/quests/mine";
+    case "QUEST_TEMPLATE_REJECTED":
+      return "/quests/mine";
+    case "QUEST_TEMPLATE_PENDING":
+      return "/admin/quest-templates";
     case "SAFE_MODE_DAILY_XP":
       return "/safe-mode";
     default:

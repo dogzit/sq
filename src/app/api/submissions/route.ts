@@ -161,16 +161,26 @@ export async function GET(request: Request) {
     });
   }
 
-  const submissions = await prisma.questSubmission.findMany({
+  const rows = await prisma.questSubmission.findMany({
     where: questId ? { questId } : { userId: user.id },
     include: {
       quest: true,
       user: { select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true } },
-      votes: { select: { verdict: true, voterId: true } },
-      _count: { select: { votes: true } },
+      // Only the current user's own vote is exposed — others stay anonymous.
+      votes: {
+        where: { voterId: user.id },
+        select: { verdict: true, voterId: true },
+      },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          user: { select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true } },
+        },
+      },
+      _count: { select: { votes: true, comments: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ submissions });
+  return NextResponse.json({ submissions: rows });
 }

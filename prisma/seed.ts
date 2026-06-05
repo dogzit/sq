@@ -25,52 +25,77 @@ async function main() {
   // ──────────────────────────────────────────
   // SHOP ITEMS  (30+ items with rarity)
   // ──────────────────────────────────────────
+  // ── Pricing model (≈ daily earn rate ~150 coins for an active player) ──
+  //   COMMON consumable: 250–400  (1–3 days)
+  //   RARE   consumable: 800–1.1k (5–7 days)
+  //   EPIC   consumable: 2.2k     (~2 weeks)
+  //   COMMON cosmetic:   600–900  (4–6 days, owned forever)
+  //   RARE   cosmetic:   1.2k–1.5k (~10 days)
+  //   EPIC   cosmetic:   2.5k–3k   (~3 weeks)
+  //   LEGENDARY animated: 5k–6.5k  (~5+ weeks — the real flex tier)
   const shopItems = [
-    // ── Titles (COSMETIC) ──
-    { name: "Quest Master", description: "The legendary neon title for true questers", price: 500, itemType: "TITLE" as const, value: "Quest Master", iconEmoji: "👑", rarity: "RARE" as const },
-    { name: "Shadow Walker", description: "A mysterious dark title", price: 400, itemType: "TITLE" as const, value: "Shadow Walker", iconEmoji: "🌑", rarity: "RARE" as const },
-    { name: "Neon God", description: "The ultimate cyberpunk flex", price: 1000, itemType: "TITLE" as const, value: "Neon God", iconEmoji: "⚡", rarity: "LEGENDARY" as const },
-    { name: "Pixel Warrior", description: "Old school gamer vibes", price: 300, itemType: "TITLE" as const, value: "Pixel Warrior", iconEmoji: "🎮", rarity: "COMMON" as const },
-    { name: "Meme Lord", description: "For the funniest in the lobby", price: 350, itemType: "TITLE" as const, value: "Meme Lord", iconEmoji: "😎", rarity: "COMMON" as const },
-    { name: "Trailblazer", description: "First to complete every quest", price: 600, itemType: "TITLE" as const, value: "Trailblazer", iconEmoji: "🔥", rarity: "RARE" as const },
-    { name: "Night Owl", description: "For those who quest after midnight", price: 200, itemType: "TITLE" as const, value: "Night Owl", iconEmoji: "🦉", rarity: "COMMON" as const },
-    { name: "Speed Demon", description: "Fastest quest completer", price: 350, itemType: "TITLE" as const, value: "Speed Demon", iconEmoji: "💨", rarity: "COMMON" as const },
-    { name: "Social Butterfly", description: "Always connecting people", price: 300, itemType: "TITLE" as const, value: "Social Butterfly", iconEmoji: "🦋", rarity: "COMMON" as const },
-    { name: "Lone Wolf", description: "Solo quest legend", price: 450, itemType: "TITLE" as const, value: "Lone Wolf", iconEmoji: "🐺", rarity: "RARE" as const },
-    { name: "Puzzle Master", description: "Trivia and brain games champion", price: 500, itemType: "TITLE" as const, value: "Puzzle Master", iconEmoji: "🧩", rarity: "RARE" as const },
-    { name: "Iron Will", description: "Never breaks a streak", price: 600, itemType: "TITLE" as const, value: "Iron Will", iconEmoji: "🛡️", rarity: "EPIC" as const },
+    // ── Titles (COSMETIC, owned forever) ──
+    { name: "Pixel Warrior", description: "Old school gamer vibes", price: 800, itemType: "TITLE" as const, value: "Pixel Warrior", iconEmoji: "🎮", rarity: "COMMON" as const },
+    { name: "Night Owl", description: "For those who quest after midnight", price: 600, itemType: "TITLE" as const, value: "Night Owl", iconEmoji: "🦉", rarity: "COMMON" as const },
+    { name: "Speed Demon", description: "Fastest quest completer", price: 900, itemType: "TITLE" as const, value: "Speed Demon", iconEmoji: "💨", rarity: "COMMON" as const },
+    { name: "Social Butterfly", description: "Always connecting people", price: 800, itemType: "TITLE" as const, value: "Social Butterfly", iconEmoji: "🦋", rarity: "COMMON" as const },
+    { name: "Meme Lord", description: "For the funniest in the lobby", price: 900, itemType: "TITLE" as const, value: "Meme Lord", iconEmoji: "😎", rarity: "COMMON" as const },
+    { name: "Shadow Walker", description: "A mysterious dark title", price: 1200, itemType: "TITLE" as const, value: "Shadow Walker", iconEmoji: "🌑", rarity: "RARE" as const },
+    { name: "Lone Wolf", description: "Solo quest legend", price: 1300, itemType: "TITLE" as const, value: "Lone Wolf", iconEmoji: "🐺", rarity: "RARE" as const },
+    { name: "Quest Master", description: "The legendary neon title for true questers", price: 1500, itemType: "TITLE" as const, value: "Quest Master", iconEmoji: "👑", rarity: "RARE" as const },
+    { name: "Puzzle Master", description: "Trivia and brain games champion", price: 1500, itemType: "TITLE" as const, value: "Puzzle Master", iconEmoji: "🧩", rarity: "RARE" as const },
+    { name: "Trailblazer", description: "First to complete every quest", price: 1800, itemType: "TITLE" as const, value: "Trailblazer", iconEmoji: "🔥", rarity: "RARE" as const },
+    { name: "Iron Will", description: "Never breaks a streak", price: 2500, itemType: "TITLE" as const, value: "Iron Will", iconEmoji: "🛡️", rarity: "EPIC" as const },
+    { name: "Neon God", description: "The ultimate cyberpunk flex", price: 5000, itemType: "TITLE" as const, value: "Neon God", iconEmoji: "⚡", rarity: "LEGENDARY" as const },
 
-    // ── Buffs (target others) ──
-    { name: "Ивээх (Bless)", description: "Grant a friend +25% XP for 24 hours", price: 150, itemType: "BUFF" as const, value: "1.25", iconEmoji: "✨", rarity: "COMMON" as const },
-    { name: "Double Blessing", description: "Grant a friend +50% XP for 24 hours", price: 400, itemType: "BUFF" as const, value: "1.50", iconEmoji: "🌟", rarity: "RARE" as const },
-    { name: "Squad Boost", description: "Grant a friend +75% XP for 24 hours", price: 700, itemType: "BUFF" as const, value: "1.75", iconEmoji: "🚀", rarity: "EPIC" as const },
+    // ── Buffs (consumable: target a friend) ──
+    { name: "Ивээх (Bless)", description: "Grant a friend +25% XP for 24 hours", price: 300, itemType: "BUFF" as const, value: "1.25", iconEmoji: "✨", rarity: "COMMON" as const },
+    { name: "Double Blessing", description: "Grant a friend +50% XP for 24 hours", price: 900, itemType: "BUFF" as const, value: "1.50", iconEmoji: "🌟", rarity: "RARE" as const },
+    { name: "Squad Boost", description: "Grant a friend +75% XP for 24 hours", price: 1800, itemType: "BUFF" as const, value: "1.75", iconEmoji: "🚀", rarity: "EPIC" as const },
 
-    // ── Debuffs (target others) ──
-    { name: "Хараах (Curse)", description: "Reduce an enemy's XP by 25% for 24 hours", price: 180, itemType: "DEBUFF" as const, value: "0.75", iconEmoji: "💀", rarity: "COMMON" as const },
-    { name: "Heavy Curse", description: "Reduce an enemy's XP by 50% for 24 hours", price: 450, itemType: "DEBUFF" as const, value: "0.50", iconEmoji: "☠️", rarity: "RARE" as const },
-    { name: "Slow Down", description: "Reduce an enemy's XP by 15% for 24 hours", price: 100, itemType: "DEBUFF" as const, value: "0.85", iconEmoji: "🐌", rarity: "COMMON" as const },
+    // ── Debuffs (consumable: target an enemy) ──
+    { name: "Slow Down", description: "Reduce an enemy's XP by 15% for 24 hours", price: 250, itemType: "DEBUFF" as const, value: "0.85", iconEmoji: "🐌", rarity: "COMMON" as const },
+    { name: "Хараах (Curse)", description: "Reduce an enemy's XP by 25% for 24 hours", price: 400, itemType: "DEBUFF" as const, value: "0.75", iconEmoji: "💀", rarity: "COMMON" as const },
+    { name: "Heavy Curse", description: "Reduce an enemy's XP by 50% for 24 hours", price: 1100, itemType: "DEBUFF" as const, value: "0.50", iconEmoji: "☠️", rarity: "RARE" as const },
 
-    // ── XP Boosts (self-buff) ──
-    { name: "Focus Mode", description: "Boost your own XP by +15% for 12 hours", price: 100, itemType: "XP_BOOST" as const, value: "1.15", iconEmoji: "🎯", rarity: "COMMON" as const },
-    { name: "Power Surge", description: "Boost your own XP by +30% for 24 hours", price: 300, itemType: "XP_BOOST" as const, value: "1.30", iconEmoji: "⚡", rarity: "RARE" as const },
-    { name: "Ascension", description: "Boost your own XP by +50% for 24 hours", price: 800, itemType: "XP_BOOST" as const, value: "1.50", iconEmoji: "🌈", rarity: "EPIC" as const },
+    // ── XP Boosts (consumable: self) ──
+    { name: "Focus Mode", description: "Boost your own XP by +15% for 12 hours", price: 250, itemType: "XP_BOOST" as const, value: "1.15", iconEmoji: "🎯", rarity: "COMMON" as const },
+    { name: "Power Surge", description: "Boost your own XP by +30% for 24 hours", price: 700, itemType: "XP_BOOST" as const, value: "1.30", iconEmoji: "⚡", rarity: "RARE" as const },
+    { name: "Ascension", description: "Boost your own XP by +50% for 24 hours", price: 2200, itemType: "XP_BOOST" as const, value: "1.50", iconEmoji: "🌈", rarity: "EPIC" as const },
 
-    // ── Quest Reroll ──
-    { name: "Quest Reroll", description: "Swap an unwanted daily quest for a new one", price: 150, itemType: "QUEST_REROLL" as const, value: "1", iconEmoji: "🔄", rarity: "COMMON" as const },
-    { name: "Golden Reroll", description: "Reroll and guarantee a HARD+ quest with bonus XP", price: 400, itemType: "QUEST_REROLL" as const, value: "hard", iconEmoji: "🎰", rarity: "RARE" as const },
+    // ── Quest Reroll (consumable) ──
+    { name: "Quest Reroll", description: "Swap an unwanted daily quest for a new one", price: 350, itemType: "QUEST_REROLL" as const, value: "1", iconEmoji: "🔄", rarity: "COMMON" as const },
+    { name: "Golden Reroll", description: "Reroll and guarantee a HARD+ quest with bonus XP", price: 1000, itemType: "QUEST_REROLL" as const, value: "hard", iconEmoji: "🎰", rarity: "RARE" as const },
 
-    // ── Avatar Frames ──
-    { name: "Neon Ring", description: "Glowing neon circle around your avatar", price: 200, itemType: "AVATAR_FRAME" as const, value: "neon-ring", iconEmoji: "💜", rarity: "COMMON" as const },
-    { name: "Fire Frame", description: "Burning flame border", price: 400, itemType: "AVATAR_FRAME" as const, value: "fire-frame", iconEmoji: "🔥", rarity: "RARE" as const },
-    { name: "Ice Crown", description: "Frosty ice crystal border", price: 500, itemType: "AVATAR_FRAME" as const, value: "ice-crown", iconEmoji: "❄️", rarity: "RARE" as const },
-    { name: "Galaxy Border", description: "Cosmic swirling galaxy effect", price: 800, itemType: "AVATAR_FRAME" as const, value: "galaxy-border", iconEmoji: "🌌", rarity: "EPIC" as const },
-    { name: "Dragon Frame", description: "Ancient dragon-scale border", price: 1200, itemType: "AVATAR_FRAME" as const, value: "dragon-frame", iconEmoji: "🐉", rarity: "LEGENDARY" as const },
+    // ── Avatar Frames — static (owned forever) ──
+    { name: "Neon Ring", description: "Glowing neon circle around your avatar", price: 600, itemType: "AVATAR_FRAME" as const, value: "neon-ring", iconEmoji: "💜", rarity: "COMMON" as const },
+    { name: "Fire Frame", description: "Burning flame border", price: 1200, itemType: "AVATAR_FRAME" as const, value: "fire-frame", iconEmoji: "🔥", rarity: "RARE" as const },
+    { name: "Ice Crown", description: "Frosty ice crystal border", price: 1500, itemType: "AVATAR_FRAME" as const, value: "ice-crown", iconEmoji: "❄️", rarity: "RARE" as const },
+    { name: "Galaxy Border", description: "Cosmic swirling galaxy effect", price: 2500, itemType: "AVATAR_FRAME" as const, value: "galaxy-border", iconEmoji: "🌌", rarity: "EPIC" as const },
+    { name: "Dragon Frame", description: "Ancient dragon-scale border", price: 5000, itemType: "AVATAR_FRAME" as const, value: "dragon-frame", iconEmoji: "🐉", rarity: "LEGENDARY" as const },
+
+    // ── Avatar Frames — ANIMATED ✨ (ML-style "alive" borders) ──
+    { name: "Phoenix Pulse", description: "Heartbeat-glowing ring of phoenix flame", price: 2800, itemType: "AVATAR_FRAME" as const, value: "phoenix-pulse", iconEmoji: "🦅", rarity: "EPIC" as const },
+    { name: "Void Pulse", description: "Pulsating violet aura from the void", price: 2800, itemType: "AVATAR_FRAME" as const, value: "void-pulse", iconEmoji: "🟣", rarity: "EPIC" as const },
+    { name: "Lightning Flicker", description: "Crackling electric border that flickers like a storm", price: 3000, itemType: "AVATAR_FRAME" as const, value: "lightning-flicker", iconEmoji: "⚡", rarity: "EPIC" as const },
+    { name: "Diamond Sparkle", description: "Spinning prism with floating sparkles", price: 5500, itemType: "AVATAR_FRAME" as const, value: "diamond-sparkle", iconEmoji: "💎", rarity: "LEGENDARY" as const },
+    { name: "Eclipse Spin", description: "Sun-and-eclipse halo rotating endlessly", price: 6000, itemType: "AVATAR_FRAME" as const, value: "eclipse-spin", iconEmoji: "🌗", rarity: "LEGENDARY" as const },
+    { name: "Aurora Spin", description: "Living aurora-borealis ring", price: 6000, itemType: "AVATAR_FRAME" as const, value: "aurora-spin", iconEmoji: "🌈", rarity: "LEGENDARY" as const },
+    { name: "Rainbow Pulse", description: "Slowly cycling rainbow hue — the ultimate flex", price: 6500, itemType: "AVATAR_FRAME" as const, value: "rainbow-pulse", iconEmoji: "🎆", rarity: "LEGENDARY" as const },
+    { name: "Cosmic Rainbow", description: "Galaxy-rainbow spin with deep cosmic glow", price: 7500, itemType: "AVATAR_FRAME" as const, value: "cosmic-rainbow", iconEmoji: "🌌", rarity: "LEGENDARY" as const },
   ];
 
   for (const item of shopItems) {
     await prisma.shopItem.upsert({
       where: { name: item.name },
-      update: { price: item.price, rarity: item.rarity, description: item.description },
+      update: {
+        price: item.price,
+        rarity: item.rarity,
+        description: item.description,
+        iconEmoji: item.iconEmoji,
+        value: item.value,
+        itemType: item.itemType,
+      },
       create: item,
     });
   }

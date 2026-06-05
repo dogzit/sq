@@ -370,6 +370,37 @@ input, textarea, [contenteditable] {
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
+/* ── Animated avatar frames (ML-style) ── */
+@keyframes frame-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes frame-hue {
+  to { filter: hue-rotate(360deg); }
+}
+@keyframes frame-pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px var(--frame-color), 0 0 16px var(--frame-color); transform: scale(1); }
+  50%      { box-shadow: 0 0 18px var(--frame-color), 0 0 36px var(--frame-color); transform: scale(1.03); }
+}
+@keyframes frame-sparkle {
+  0%, 100% { opacity: 0.4; transform: scale(0.9) rotate(0deg); }
+  50%      { opacity: 1;   transform: scale(1.1) rotate(180deg); }
+}
+@keyframes frame-flicker {
+  0%, 100% { opacity: 1; box-shadow: 0 0 18px rgba(120, 220, 255, 0.9), 0 0 36px rgba(120, 220, 255, 0.6); }
+  47%      { opacity: 1; }
+  48%      { opacity: 0.4; box-shadow: 0 0 6px rgba(120, 220, 255, 0.4); }
+  49%      { opacity: 1; box-shadow: 0 0 24px rgba(180, 240, 255, 1), 0 0 48px rgba(120, 220, 255, 0.8); }
+  53%      { opacity: 1; }
+  54%      { opacity: 0.5; }
+  55%      { opacity: 1; }
+}
+
+.frame-anim-spin   { animation: frame-spin 4s linear infinite; }
+.frame-anim-hue    { animation: frame-hue 6s linear infinite; }
+.frame-anim-pulse  { animation: frame-pulse-glow 1.8s ease-in-out infinite; }
+.frame-anim-sparkle{ animation: frame-sparkle 2.4s ease-in-out infinite; }
+.frame-anim-flicker{ animation: frame-flicker 3s linear infinite; }
+
 /* ═══════════════════════════════════════════
    BASE LAYER
    ═══════════════════════════════════════════ */

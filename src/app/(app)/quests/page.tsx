@@ -27,7 +27,18 @@ export default function QuestsPage() {
 
   return (
     <>
-      <TopBar title="Quests" showBack />
+      <TopBar
+        title="Quests"
+        showBack
+        rightAction={
+          <Link
+            href="/quests/mine"
+            className="text-xs px-3 py-1.5 rounded-full font-semibold bg-neon-purple/15 text-neon-purple"
+          >
+            Минийх
+          </Link>
+        }
+      />
 
       <div className="px-4 py-4 space-y-3 max-w-2xl mx-auto">
         <div className="flex items-center justify-between">
@@ -38,6 +49,24 @@ export default function QuestsPage() {
             {isLoading ? "..." : `${quests.length} active`}
           </span>
         </div>
+
+        <Link
+          href="/quests/create"
+          className="game-card p-3.5 flex items-center justify-between border-2 border-dashed border-border hover:border-neon-purple/40 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="emoji-ring text-lg">➕</div>
+            <div>
+              <div className="text-sm font-semibold group-hover:text-neon-purple transition-colors">
+                Өөрийн quest үүсгэх
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                Админ батлахад та өөрөө шагнал авна
+              </div>
+            </div>
+          </div>
+          <span className="text-muted-foreground group-hover:text-neon-purple transition-colors">→</span>
+        </Link>
 
         {isLoading ? (
           <SkeletonList count={4} />

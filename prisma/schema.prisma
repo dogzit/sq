@@ -52,6 +52,7 @@ model User {
   lobbyMembers        LobbyMember[]
   submissions         QuestSubmission[]
   votes               VetoVote[]
+  submissionComments  SubmissionComment[]
   locations           UserLocation[]
   sentInvites         LobbyInvite[]      @relation("InviteSender")
   receivedInvites     LobbyInvite[]      @relation("InviteReceiver")
@@ -64,6 +65,8 @@ model User {
   notifications       Notification[]
   createdTrivia       TriviaQuestion[]   @relation("TriviaCreator")
   reviewedTrivia      TriviaQuestion[]   @relation("TriviaReviewer")
+  createdQuestTemplates  QuestTemplate[] @relation("QuestTemplateCreator")
+  reviewedQuestTemplates QuestTemplate[] @relation("QuestTemplateReviewer")
   triviaAnswers       UserTriviaAnswer[]
   sentFriendships     Friendship[]       @relation("FriendshipRequester")
   receivedFriendships Friendship[]       @relation("FriendshipAddressee")
@@ -250,6 +253,7 @@ model Quest {
 
   lobby       Lobby?            @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
   submissions QuestSubmission[]
+  template    QuestTemplate?
 
   @@index([lobbyId, status])
   @@index([questType, status, expiresAt])
@@ -271,6 +275,32 @@ enum QuestStatus {
   ACTIVE
   COMPLETED
   EXPIRED
+}
+
+/// User-submitted quest awaiting admin approval. On approve a global Quest row
+/// is created and the creator is credited with this template's reward.
+model QuestTemplate {
+  id              String          @id @default(cuid())
+  title           String
+  description     String
+  xpReward        Int             @default(50)
+  coinReward      Int             @default(15)
+  difficulty      QuestDifficulty @default(MEDIUM)
+  status          TriviaStatus    @default(PENDING)
+  rejectReason    String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  creatorId       String
+  createdAt       DateTime        @default(now())
+  /// The Quest row spawned when admin approved this template (if any).
+  approvedQuestId String?         @unique
+
+  creator       User   @relation("QuestTemplateCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  reviewedBy    User?  @relation("QuestTemplateReviewer", fields: [reviewedById], references: [id])
+  approvedQuest Quest? @relation(fields: [approvedQuestId], references: [id], onDelete: SetNull)
+
+  @@index([creatorId])
+  @@index([status, createdAt(sort: Desc)])
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -298,12 +328,27 @@ model QuestSubmission {
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   quest      Quest       @relation(fields: [questId], references: [id], onDelete: Cascade)
   votes      VetoVote[]
+  comments   SubmissionComment[]
   albumPhoto AlbumPhoto?
 
   @@unique([userId, questId])
   @@index([userId])
   @@index([questId])
   @@index([vetoStatus, vetoDeadline])
+}
+
+/// Comments left on a quest submission (anyone in the lobby can comment)
+model SubmissionComment {
+  id           String   @id @default(cuid())
+  body         String
+  userId       String
+  submissionId String
+  createdAt    DateTime @default(now())
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submission QuestSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId, createdAt])
 }
 
 /// Lobby members vote on each submission

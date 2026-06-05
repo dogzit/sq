@@ -53,6 +53,14 @@ const items = [
     tint: "from-neon-gold/15",
   },
   {
+    href: "/admin/quest-templates",
+    label: "User Quests",
+    emoji: "🎯",
+    color: "text-neon-purple",
+    ring: "bg-neon-purple/10 border-neon-purple/30",
+    tint: "from-neon-purple/15",
+  },
+  {
     href: "/admin/achievements",
     label: "Achievements",
     emoji: "🏆",

@@ -6,6 +6,7 @@ import TopBar from "@/components/TopBar";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { useUser } from "@/lib/swr";
 import { toast } from "sonner";
+import { verifyTakenToday } from "@/lib/photo-date";
 
 const MAX_PHOTOS = 10; // including the primary one
 
@@ -17,6 +18,13 @@ interface Quest {
   difficulty: string;
   expiresAt: string;
   lobbyId: string | null;
+}
+
+interface SubmissionComment {
+  id: string;
+  body: string;
+  createdAt: string;
+  user: { id: string; username: string; displayName: string; avatarUrl: string | null };
 }
 
 interface Submission {
@@ -31,8 +39,10 @@ interface Submission {
   rejectCount: number;
   createdAt: string;
   user: { id: string; username: string; displayName: string; avatarUrl: string | null };
+  // Only the current user's own vote is returned by the API (others are anonymous).
   votes: { verdict: string; voterId: string }[];
-  _count: { votes: number };
+  comments: SubmissionComment[];
+  _count: { votes: number; comments: number };
 }
 
 interface PickedItem {
@@ -64,6 +74,8 @@ export default function QuestDetailPage() {
   const [editPicked, setEditPicked] = useState<PickedItem[]>([]); // new files to add
   const [editSaving, setEditSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentSubmitting, setCommentSubmitting] = useState<string | null>(null);
   const { user: currentUser } = useUser();
   const currentUserId = currentUser?.id || null;
 
@@ -106,7 +118,18 @@ export default function QuestDetailPage() {
     return { type: isVideo ? "VIDEO" : "IMAGE" };
   }
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function ensureTakenToday(file: File): Promise<boolean> {
+    const r = await verifyTakenToday(file);
+    if (r.ok) return true;
+    if (r.reason === "old_exif" || r.reason === "old_file") {
+      toast.error("Зөвхөн өнөөдөр авсан зураг/видео илгээнэ үү");
+    } else {
+      toast.error("Зургийн огноо тодорхойгүй — камераар шууд дарж илгээнэ үү");
+    }
+    return false;
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
     if (files.length === 0) return;
@@ -118,6 +141,7 @@ export default function QuestDetailPage() {
     for (const file of files) {
       const v = validateFile(file);
       if (!v) continue;
+      if (!(await ensureTakenToday(file))) continue;
       if (v.type === "VIDEO") hasVideoInNew = true;
       newItems.push({
         id: `${Date.now()}-${Math.random()}`,
@@ -249,7 +273,7 @@ export default function QuestDetailPage() {
     setEditing(false);
   }
 
-  function handleEditFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleEditFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
     if (files.length === 0) return;
@@ -266,6 +290,7 @@ export default function QuestDetailPage() {
         toast.error("Засварлахдаа зөвхөн зураг нэмж болно");
         continue;
       }
+      if (!(await ensureTakenToday(file))) continue;
       newItems.push({
         id: `${Date.now()}-${Math.random()}`,
         file,
@@ -374,6 +399,30 @@ export default function QuestDetailPage() {
     }
   }
 
+  async function submitComment(submissionId: string) {
+    const body = (commentDrafts[submissionId] || "").trim();
+    if (!body) return;
+    setCommentSubmitting(submissionId);
+    try {
+      const res = await fetch(`/api/submissions/${submissionId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Сэтгэгдэл илгээж чадсангүй");
+        return;
+      }
+      setCommentDrafts((prev) => ({ ...prev, [submissionId]: "" }));
+      loadSubmissions();
+    } catch {
+      toast.error("Сүлжээний алдаа");
+    } finally {
+      setCommentSubmitting(null);
+    }
+  }
+
   async function handleVote(submissionId: string, verdict: "APPROVE" | "REJECT") {
     setVotingId(submissionId);
     try {
@@ -458,6 +507,7 @@ export default function QuestDetailPage() {
                 ref={fileRef}
                 type="file"
                 accept="image/*,video/*"
+                capture="environment"
                 multiple
                 onChange={handleFileSelect}
                 className="hidden"
@@ -534,10 +584,10 @@ export default function QuestDetailPage() {
                 >
                   <div className="text-4xl mb-2">📸 🎥</div>
                   <div className="text-sm font-semibold text-foreground group-hover:text-neon-purple transition-colors">
-                    Зураг эсвэл видео сонгох
+                    Камераар зураг/видео авах
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-1">
-                    Олон зураг сонгож болно · Зураг ≤ 10MB · Видео ≤ 80MB
+                    Зөвхөн өнөөдөр авсан зураг/видео · ≤10MB / ≤80MB
                   </div>
                 </button>
               )}
@@ -603,6 +653,7 @@ export default function QuestDetailPage() {
                 ref={editFileRef}
                 type="file"
                 accept="image/*"
+                capture="environment"
                 multiple
                 onChange={handleEditFileSelect}
                 className="hidden"
@@ -779,6 +830,61 @@ export default function QuestDetailPage() {
                         </button>
                       </div>
                     )}
+
+                    {/* Comments */}
+                    <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                      {sub.comments.length > 0 && (
+                        <div className="space-y-2">
+                          {sub.comments.map((c) => (
+                            <div key={c.id} className="flex items-start gap-2">
+                              <div className="w-6 h-6 rounded-full bg-neon-purple/15 flex items-center justify-center text-[10px] font-bold text-neon-purple shrink-0 overflow-hidden">
+                                {c.user.avatarUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={c.user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  c.user.displayName[0]
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs">
+                                  <span className="font-semibold">{c.user.displayName}</span>
+                                  <span className="text-muted-foreground/70 ml-2">
+                                    {new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                </div>
+                                <div className="text-sm break-words whitespace-pre-wrap">{c.body}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <input
+                          value={commentDrafts[sub.id] || ""}
+                          onChange={(e) =>
+                            setCommentDrafts((prev) => ({ ...prev, [sub.id]: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              submitComment(sub.id);
+                            }
+                          }}
+                          placeholder="Сэтгэгдэл бичих..."
+                          maxLength={300}
+                          disabled={commentSubmitting === sub.id}
+                          className="flex-1 bg-secondary border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neon-purple/40 placeholder:text-muted-foreground/50"
+                        />
+                        <button
+                          onClick={() => submitComment(sub.id)}
+                          disabled={commentSubmitting === sub.id || !(commentDrafts[sub.id] || "").trim()}
+                          className="pill bg-neon-purple/15 text-neon-purple hover:bg-neon-purple/25 transition-colors disabled:opacity-40"
+                        >
+                          {commentSubmitting === sub.id ? "..." : "Илгээх"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
