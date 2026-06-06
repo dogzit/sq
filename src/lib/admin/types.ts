@@ -17,6 +17,46 @@ export type AdminStats = {
   submissionCount: number;
   shopItemCount: number;
   pendingTriviaCount: number;
+  pendingSubmissionCount: number;
+  pendingQuestTemplateCount: number;
+  activeQuestCount: number;
+  last24hUserCount: number;
+  last24hSubmissionCount: number;
+};
+
+export type AdminInboxUser = {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+};
+
+export type AdminInboxSubmission = {
+  id: string;
+  createdAt: string;
+  mediaType: MediaType;
+  user: AdminInboxUser;
+  quest: { id: string; title: string } | null;
+};
+
+export type AdminInboxQuestTemplate = {
+  id: string;
+  title: string;
+  createdAt: string;
+  creator: AdminInboxUser;
+};
+
+export type AdminInboxTrivia = {
+  id: string;
+  question: string;
+  createdAt: string;
+  creator: AdminInboxUser;
+};
+
+export type AdminInbox = {
+  pendingSubmissions: AdminInboxSubmission[];
+  pendingQuestTemplates: AdminInboxQuestTemplate[];
+  pendingTrivia: AdminInboxTrivia[];
 };
 
 export type AdminUser = {
@@ -76,6 +116,7 @@ export type AdminLobby = {
 
 export type AdminData = {
   stats: AdminStats;
+  inbox: AdminInbox;
   recentUsers: AdminUser[];
   activeQuests: AdminQuest[];
   shopItems: AdminShopItem[];

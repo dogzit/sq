@@ -240,6 +240,16 @@ export default function DashboardPage() {
                 {user?.isSafeMode ? "Идэвхтэй" : "Streak царца"}
               </div>
             </Link>
+            <Link href="/feed" className="game-card p-4 text-center group">
+              <div className="emoji-ring mx-auto mb-2">📡</div>
+              <div className="text-sm font-semibold text-foreground group-hover:text-neon-pink transition-colors">Feed</div>
+              <div className="text-[11px] text-muted-foreground">Найзуудын идэвхжил</div>
+            </Link>
+            <Link href="/leaderboard" className="game-card p-4 text-center group">
+              <div className="emoji-ring mx-auto mb-2">🏅</div>
+              <div className="text-sm font-semibold text-foreground group-hover:text-neon-gold transition-colors">Leaderboard</div>
+              <div className="text-[11px] text-muted-foreground">XP ranking</div>
+            </Link>
           </div>
         </AnimatedItem>
 

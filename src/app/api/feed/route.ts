@@ -2,13 +2,21 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
-const LIMIT = 30;
+const PAGE_SIZE = 10;
+// Pull a wider window from each source so interleaving doesn't drop events.
+const FETCH_BUFFER = 25;
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
 
-  // Friends (accepted both ways)
+  const { searchParams } = new URL(request.url);
+  const cursor = searchParams.get("cursor");
+  const cursorDate = cursor ? new Date(cursor) : null;
+  if (cursor && (!cursorDate || Number.isNaN(cursorDate.getTime()))) {
+    return NextResponse.json({ error: "Invalid cursor" }, { status: 400 });
+  }
+
   const fs = await prisma.friendship.findMany({
     where: {
       status: "ACCEPTED",
@@ -21,42 +29,49 @@ export async function GET() {
   );
 
   if (friendIds.length === 0) {
-    return NextResponse.json({ events: [] });
+    return NextResponse.json({ events: [], nextCursor: null });
   }
 
-  // 1) Approved quest submissions
-  const subs = await prisma.questSubmission.findMany({
-    where: { userId: { in: friendIds }, vetoStatus: "APPROVED" },
-    orderBy: { createdAt: "desc" },
-    take: LIMIT,
-    select: {
-      id: true,
-      createdAt: true,
-      mediaUrl: true,
-      mediaType: true,
-      xpAwarded: true,
-      caption: true,
-      user: {
-        select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true },
+  const [subs, achs] = await Promise.all([
+    prisma.questSubmission.findMany({
+      where: {
+        userId: { in: friendIds },
+        vetoStatus: "APPROVED",
+        ...(cursorDate ? { createdAt: { lt: cursorDate } } : {}),
       },
-      quest: { select: { id: true, title: true } },
-    },
-  });
-
-  // 2) Unlocked achievements (claimed)
-  const achs = await prisma.userAchievement.findMany({
-    where: { userId: { in: friendIds }, claimed: true },
-    orderBy: { unlockedAt: "desc" },
-    take: LIMIT,
-    select: {
-      id: true,
-      unlockedAt: true,
-      user: {
-        select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true },
+      orderBy: { createdAt: "desc" },
+      take: FETCH_BUFFER,
+      select: {
+        id: true,
+        createdAt: true,
+        mediaUrl: true,
+        mediaType: true,
+        xpAwarded: true,
+        caption: true,
+        user: {
+          select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true },
+        },
+        quest: { select: { id: true, title: true } },
       },
-      achievement: { select: { name: true, iconEmoji: true, rarity: true } },
-    },
-  });
+    }),
+    prisma.userAchievement.findMany({
+      where: {
+        userId: { in: friendIds },
+        claimed: true,
+        ...(cursorDate ? { unlockedAt: { lt: cursorDate } } : {}),
+      },
+      orderBy: { unlockedAt: "desc" },
+      take: FETCH_BUFFER,
+      select: {
+        id: true,
+        unlockedAt: true,
+        user: {
+          select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true },
+        },
+        achievement: { select: { name: true, iconEmoji: true, rarity: true } },
+      },
+    }),
+  ]);
 
   type FeedEvent =
     | {
@@ -78,7 +93,7 @@ export async function GET() {
         achievement: { name: string; iconEmoji: string; rarity: string };
       };
 
-  const events: FeedEvent[] = [
+  const merged: FeedEvent[] = [
     ...subs.map((s) => ({
       kind: "submission" as const,
       id: `sub_${s.id}`,
@@ -99,7 +114,15 @@ export async function GET() {
     })),
   ];
 
-  events.sort((a, b) => (a.at < b.at ? 1 : -1));
+  merged.sort((a, b) => (a.at < b.at ? 1 : -1));
+  const page = merged.slice(0, PAGE_SIZE);
 
-  return NextResponse.json({ events: events.slice(0, LIMIT) });
+  // Has-more if we filled the page AND there is at least one more item in the
+  // merged buffer beyond the page. nextCursor is the oldest "at" we returned.
+  const nextCursor =
+    page.length === PAGE_SIZE && merged.length > PAGE_SIZE
+      ? page[page.length - 1].at
+      : null;
+
+  return NextResponse.json({ events: page, nextCursor });
 }

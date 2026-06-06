@@ -16,13 +16,30 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
   if (!(await isAdmin(user.id))) return NextResponse.json({ error: "Хандах эрхгүй байна" }, { status: 403 });
 
-  const [userCount, lobbyCount, questCount, submissionCount, shopItemCount, pendingTriviaCount] = await Promise.all([
+  const [
+    userCount,
+    lobbyCount,
+    questCount,
+    submissionCount,
+    shopItemCount,
+    pendingTriviaCount,
+    pendingSubmissionCount,
+    pendingQuestTemplateCount,
+    activeQuestCount,
+    last24hUserCount,
+    last24hSubmissionCount,
+  ] = await Promise.all([
     prisma.user.count(),
     prisma.lobby.count(),
     prisma.quest.count(),
     prisma.questSubmission.count(),
     prisma.shopItem.count(),
     prisma.triviaQuestion.count({ where: { status: "PENDING" } }),
+    prisma.questSubmission.count({ where: { vetoStatus: "PENDING" } }),
+    prisma.questTemplate.count({ where: { status: "PENDING" } }),
+    prisma.quest.count({ where: { status: "ACTIVE" } }),
+    prisma.user.count({ where: { createdAt: { gte: new Date(Date.now() - 86_400_000) } } }),
+    prisma.questSubmission.count({ where: { createdAt: { gte: new Date(Date.now() - 86_400_000) } } }),
   ]);
 
   const recentUsers = await prisma.user.findMany({
@@ -52,8 +69,63 @@ export async function GET() {
     take: 50,
   });
 
+  // ── Quick previews for the notification bell ──
+  const [pendingSubmissions, pendingQuestTemplates, pendingTrivia] = await Promise.all([
+    prisma.questSubmission.findMany({
+      where: { vetoStatus: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        createdAt: true,
+        mediaType: true,
+        user: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+        quest: { select: { id: true, title: true } },
+      },
+    }),
+    prisma.questTemplate.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        creator: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      },
+    }),
+    prisma.triviaQuestion.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        question: true,
+        createdAt: true,
+        creator: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
+      },
+    }),
+  ]);
+
   return NextResponse.json({
-    stats: { userCount, lobbyCount, questCount, submissionCount, shopItemCount, pendingTriviaCount },
+    stats: {
+      userCount,
+      lobbyCount,
+      questCount,
+      submissionCount,
+      shopItemCount,
+      pendingTriviaCount,
+      pendingSubmissionCount,
+      pendingQuestTemplateCount,
+      activeQuestCount,
+      last24hUserCount,
+      last24hSubmissionCount,
+    },
+    inbox: {
+      pendingSubmissions,
+      pendingQuestTemplates,
+      pendingTrivia,
+    },
     recentUsers,
     activeQuests,
     shopItems,

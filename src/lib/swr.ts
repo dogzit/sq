@@ -164,13 +164,14 @@ export function useSuggestedUsers() {
 }
 
 export function useLocations(lobbyId: string) {
-  const { data, error, isLoading } = useSWR(
+  const { data, error, isLoading, mutate } = useSWR(
     lobbyId ? `/api/location?lobbyId=${lobbyId}` : null,
     fetcher,
     {
       ...defaultConfig,
-      refreshInterval: 10000,  // auto-refresh every 10s for live map
-      dedupingInterval: 3000,
+      // Pusher pushes live updates; SWR is just the warm-start snapshot + safety net.
+      refreshInterval: 60000,
+      dedupingInterval: 5000,
     }
   );
   return {
@@ -179,5 +180,6 @@ export function useLocations(lobbyId: string) {
     visibleUntil: data?.visibleUntil,
     isLoading,
     isError: error,
+    mutate,
   };
 }

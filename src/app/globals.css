@@ -453,6 +453,253 @@ input, textarea, [contenteditable] {
 .frame-anim-flicker{ animation: frame-flicker 3s linear infinite; }
 
 /* ═══════════════════════════════════════════
+   SNAPCHAT-STYLE MAP MARKERS
+   ═══════════════════════════════════════════ */
+
+.map-marker-wrap { background: transparent !important; border: 0 !important; }
+
+.map-marker {
+  position: relative;
+  width: 80px;
+  height: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+  will-change: transform;
+}
+
+.map-marker__bubble {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-marker__avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--secondary);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.1);
+  z-index: 2;
+}
+
+.map-marker__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.map-marker__initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--neon-purple);
+  background: rgba(124, 92, 255, 0.18);
+}
+
+.map-marker__frame {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--map-frame-color, var(--neon-purple));
+  box-shadow:
+    0 0 12px var(--map-frame-color, rgba(124, 92, 255, 0.7)),
+    0 0 24px var(--map-frame-color, rgba(124, 92, 255, 0.35));
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Self marker — purple "you" ring (always shown over friends) */
+.map-marker--self .map-marker__avatar {
+  box-shadow:
+    0 4px 14px rgba(124, 92, 255, 0.5),
+    inset 0 0 0 2px var(--neon-purple);
+}
+
+/* Pulse — concentric expanding rings while live */
+.map-marker__pulse {
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(45, 212, 255, 0.45);
+  box-shadow: 0 0 0 0 rgba(45, 212, 255, 0.55);
+  animation: map-marker-pulse 2.4s ease-out infinite;
+  z-index: 0;
+}
+.map-marker--self .map-marker__pulse {
+  background: rgba(124, 92, 255, 0.45);
+  box-shadow: 0 0 0 0 rgba(124, 92, 255, 0.55);
+}
+
+@keyframes map-marker-pulse {
+  0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.9; }
+  80%  { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
+
+.map-marker__name {
+  margin-top: 6px;
+  padding: 2px 8px;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: -0.01em;
+  color: #fff;
+  background: rgba(10, 10, 18, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+:root:not(.dark) .map-marker__name {
+  color: var(--foreground);
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--border);
+}
+
+.map-marker__status {
+  margin-top: 3px;
+  padding: 1px 6px;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  background: rgba(0, 0, 0, 0.5);
+}
+.map-marker__status.is-live {
+  color: #fff;
+  background: var(--neon-green);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.7);
+  animation: map-marker-live 1.6s ease-in-out infinite;
+}
+@keyframes map-marker-live {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.65; }
+}
+
+/* Smooth marker translation when Leaflet re-positions */
+.leaflet-marker-icon {
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Hide ugly default leaflet attribution/controls; we render our own */
+.leaflet-control-attribution { display: none !important; }
+
+/* ═══════════════════════════════════════════
+   HELP PAGE PROSE
+   ═══════════════════════════════════════════ */
+
+.prose-block .link {
+  color: var(--neon-purple);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: rgba(124, 92, 255, 0.4);
+  text-underline-offset: 3px;
+  transition: color 150ms;
+}
+.prose-block .link:hover { color: var(--neon-blue); }
+
+.prose-block .kbd {
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 0.78em;
+  padding: 0.1em 0.4em;
+  border-radius: 0.4em;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+}
+
+.prose-block .sub {
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  margin-top: 0.5rem;
+  color: var(--foreground);
+}
+
+.prose-block .list-bullets {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.prose-block .list-bullets > li {
+  position: relative;
+  padding-left: 1.25rem;
+  line-height: 1.6;
+  font-size: 0.875rem;
+}
+.prose-block .list-bullets > li::before {
+  content: "›";
+  position: absolute;
+  left: 0;
+  color: var(--neon-purple);
+  font-weight: 700;
+}
+
+.prose-block .list-numbered {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  counter-reset: helpli;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.prose-block .list-numbered > li {
+  position: relative;
+  padding-left: 2rem;
+  line-height: 1.6;
+  font-size: 0.875rem;
+  counter-increment: helpli;
+}
+.prose-block .list-numbered > li::before {
+  content: counter(helpli);
+  position: absolute;
+  left: 0;
+  top: 0.05rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: rgba(124, 92, 255, 0.12);
+  color: var(--neon-purple);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════
    BASE LAYER
    ═══════════════════════════════════════════ */
 
