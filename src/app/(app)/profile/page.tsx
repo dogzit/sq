@@ -180,6 +180,7 @@ export default function ProfilePage() {
               { href: "/history", emoji: "📜", label: "Quest түүх" },
               { href: "/trivia/mine", emoji: "🧠", label: "Миний Trivia" },
               { href: "/safe-mode", emoji: "🏕️", label: "Camping Pass" },
+              { href: "/help", emoji: "❓", label: "Тусламж" },
             ].map(({ href, emoji, label }) => {
               const isAchievements = href === "/achievements";
               const badgeCount = isAchievements ? (user?.unclaimedAchievements ?? 0) : 0;

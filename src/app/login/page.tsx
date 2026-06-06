@@ -48,7 +48,14 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center px-4 relative">
-      <div className="absolute top-4 right-4">
+      {/* ── Top right controls ── */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <Link
+          href="/help"
+          className="text-xs font-medium text-muted-foreground hover:text-neon-purple transition-colors bg-secondary px-3 py-1.5 rounded-full"
+        >
+          Тусламж
+        </Link>
         <ThemeToggle />
       </div>
 
