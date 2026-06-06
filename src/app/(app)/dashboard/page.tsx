@@ -11,6 +11,7 @@ import { xpForLevel, calculateLevel, levelProgress, xpToNextLevel } from "@/lib/
 import Link from "next/link";
 import { toast } from "sonner";
 import UserAvatar from "@/components/UserAvatar";
+import QuestCard, { sortQuestsByDoneLast } from "@/components/QuestCard";
 
 interface PushupStatusLite {
   unlocked: boolean;
@@ -96,8 +97,13 @@ export default function DashboardPage() {
           userLoading ? (
             <div className="h-4 w-16 skeleton-shimmer rounded-lg" />
           ) : (
-            <Link href="/profile" className="flex items-center gap-2 group">
+            <Link href="/profile" className="relative flex items-center gap-2 group">
               <UserAvatar user={user ?? {}} size={28} linkToProfile={false} ring />
+              {(user?.unclaimedAchievements ?? 0) > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-neon-red text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-background">
+                  {user!.unclaimedAchievements > 9 ? "9+" : user!.unclaimedAchievements}
+                </span>
+              )}
             </Link>
           )
         }
@@ -150,9 +156,11 @@ export default function DashboardPage() {
 
         {/* Daily Check-In */}
         <AnimatedItem>
-          <div className="game-card p-4 flex items-center justify-between">
+          <div className={`game-card p-4 flex items-center justify-between ${!checkedInToday ? "ring-1 ring-neon-gold/30 bg-gradient-to-r from-neon-gold/5 to-transparent" : ""}`}>
             <div className="flex items-center gap-3">
-              <div className="emoji-ring">{checkedInToday ? "✅" : "🎁"}</div>
+              <div className={`emoji-ring ${!checkedInToday ? "animate-wiggle" : ""}`}>
+                {checkedInToday ? "✅" : "🎁"}
+              </div>
               <div>
                 <div className="text-sm font-semibold">Daily Check-In</div>
                 <div className="text-[11px] text-muted-foreground">
@@ -167,7 +175,7 @@ export default function DashboardPage() {
               <button
                 onClick={handleCheckIn}
                 disabled={checkingIn}
-                className="btn-game text-xs px-4 py-2"
+                className="btn-game text-xs px-4 py-2 animate-sparkle-pop"
               >
                 {checkingIn ? "..." : "Claim"}
               </button>
@@ -282,7 +290,7 @@ export default function DashboardPage() {
           ) : null}
         </AnimatedItem>
 
-        {/* Active Quests */}
+        {/* Active Quests (todo-first, done-last) */}
         <AnimatedItem>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-display text-sm font-semibold text-foreground">
@@ -305,30 +313,30 @@ export default function DashboardPage() {
               <p className="text-xs text-muted-foreground">Join a lobby to generate quests</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {quests.slice(0, 3).map((quest: any) => {
-                const done = quest.submissions?.length > 0;
-                return (
-                  <Link key={quest.id} href={`/quests/${quest.id}`}>
-                    <div className={`game-card p-3.5 flex items-center gap-3 ${done ? "opacity-50" : ""}`}>
-                      <div className="emoji-ring">🎯</div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold truncate">{quest.title}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="pill bg-neon-gold/10 text-neon-gold">⚡ {quest.xpReward}</span>
-                          <span className="text-[11px] text-muted-foreground">{quest.difficulty}</span>
-                        </div>
-                      </div>
-                      {done ? (
-                        <span className="pill bg-neon-green/10 text-neon-green">Done</span>
-                      ) : (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground"><path d="m9 18 6-6-6-6"/></svg>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+            (() => {
+              const undone = sortQuestsByDoneLast(
+                quests.filter(
+                  (q: any) => q.submissions?.[0]?.vetoStatus !== "APPROVED",
+                ),
+              ).slice(0, 3);
+              return undone.length === 0 ? (
+                <div className="game-card p-8 text-center">
+                  <div className="text-4xl mb-3">🎉</div>
+                  <p className="font-display text-sm font-semibold text-foreground mb-1">
+                    All caught up!
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    No pending quests — tap View all to revisit.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {undone.map((quest: any) => (
+                    <QuestCard key={quest.id} quest={quest} />
+                  ))}
+                </div>
+              );
+            })()
           )}
         </AnimatedItem>
       </AnimatedList>
@@ -336,3 +344,4 @@ export default function DashboardPage() {
     </>
   );
 }
+

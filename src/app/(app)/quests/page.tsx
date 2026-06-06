@@ -5,25 +5,10 @@ import { SkeletonList } from "@/components/Skeleton";
 import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { useQuests } from "@/lib/swr";
 import Link from "next/link";
-
-const diffConfig: Record<string, { color: string; bg: string }> = {
-  EASY: { color: "text-neon-green", bg: "bg-neon-green/10" },
-  MEDIUM: { color: "text-blue-400", bg: "bg-blue-400/10" },
-  HARD: { color: "text-neon-orange", bg: "bg-neon-orange/10" },
-  LEGENDARY: { color: "text-neon-red", bg: "bg-neon-red/10" },
-};
+import QuestCard, { sortQuestsByDoneLast } from "@/components/QuestCard";
 
 export default function QuestsPage() {
   const { quests, isLoading } = useQuests();
-
-  function timeLeft(expiresAt: string) {
-    // eslint-disable-next-line react-hooks/purity -- benign read of current time for a "time left" badge
-    const diff = new Date(expiresAt).getTime() - Date.now();
-    if (diff <= 0) return "Expired";
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    return `${h}h ${m}m`;
-  }
 
   return (
     <>
@@ -83,48 +68,11 @@ export default function QuestsPage() {
           </div>
         ) : (
           <AnimatedList className="space-y-2">
-            {quests.map((quest: any) => {
-              const done = quest.submissions?.length > 0;
-              const diff = diffConfig[quest.difficulty] || { color: "text-muted-foreground", bg: "bg-secondary" };
-              return (
-                <AnimatedItem key={quest.id}>
-                  <Link href={`/quests/${quest.id}`}>
-                    <div className={`game-card p-4 ${done ? "opacity-50" : ""}`}>
-                      <div className="flex items-start gap-3">
-                        <div className="emoji-ring text-lg flex-shrink-0">
-                          {quest.questType === "EMERGENCY" ? "⚡" : "🎯"}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-sm font-semibold truncate">{quest.title}</h3>
-                            {done && <span className="pill bg-neon-green/10 text-neon-green">✓</span>}
-                            {quest.questType === "EMERGENCY" && (
-                              <span className="pill bg-neon-red/15 text-neon-red animate-glow-pulse">
-                                EMERGENCY
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {quest.description}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className={`pill ${diff.bg} ${diff.color}`}>
-                              {quest.difficulty}
-                            </span>
-                            <span className="pill bg-neon-gold/10 text-neon-gold">
-                              ⚡ {quest.xpReward}
-                            </span>
-                            <span className="pill bg-secondary text-muted-foreground">
-                              {timeLeft(quest.expiresAt)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                </AnimatedItem>
-              );
-            })}
+            {sortQuestsByDoneLast(quests).map((quest: any) => (
+              <AnimatedItem key={quest.id}>
+                <QuestCard quest={quest} />
+              </AnimatedItem>
+            ))}
           </AnimatedList>
         )}
       </div>

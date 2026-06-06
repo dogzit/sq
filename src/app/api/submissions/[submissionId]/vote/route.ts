@@ -82,6 +82,26 @@ export async function POST(
     });
   }
 
+  // Notify the submission owner about who voted (single notification per voter+sub).
+  createNotification({
+    userId: submission.userId,
+    type: verdict === "APPROVE" ? "vote_approve" : "vote_reject",
+    title:
+      verdict === "APPROVE"
+        ? `${user.displayName} approve дарлаа`
+        : `${user.displayName} reject дарлаа`,
+    body: existingVote
+      ? `Submission дээрх саналаа ${verdict === "APPROVE" ? "approve" : "reject"} болгож сольсон.`
+      : `Submission дээр чинь санал өглөө.`,
+    metadata: {
+      submissionId: submission.id,
+      questId: submission.questId,
+      voterId: user.id,
+      voterUsername: user.username,
+      verdict,
+    },
+  }).catch(() => {});
+
   await tryResolve({ ...submission, ...updated }, updated);
   checkAchievements(user.id, { votesCast: 1 }).catch(() => {});
 

@@ -12,15 +12,42 @@ export async function GET(request: Request) {
   const quests = await prisma.quest.findMany({
     where: {
       status: "ACTIVE",
-      expiresAt: { gt: new Date() },
-      ...(lobbyId ? { lobbyId } : {}),
+      ...(lobbyId
+        ? { lobbyId }
+        : {
+            lobby: { members: { some: { userId: user.id } } },
+          }),
     },
     include: {
+      lobby: {
+        select: {
+          id: true,
+          name: true,
+          _count: { select: { members: true } },
+        },
+      },
       submissions: {
         where: { userId: user.id },
-        select: { id: true, vetoStatus: true, mediaUrl: true, mediaType: true },
+        select: {
+          id: true,
+          vetoStatus: true,
+          mediaUrl: true,
+          mediaType: true,
+          approveCount: true,
+          rejectCount: true,
+        },
       },
-      _count: { select: { submissions: true } },
+      _count: {
+        select: {
+          submissions: {
+            where: {
+              userId: { not: user.id },
+              vetoStatus: "PENDING",
+              votes: { none: { voterId: user.id } },
+            },
+          },
+        },
+      },
     },
     orderBy: { expiresAt: "asc" },
   });

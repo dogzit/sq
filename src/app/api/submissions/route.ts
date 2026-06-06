@@ -166,10 +166,23 @@ export async function GET(request: Request) {
     include: {
       quest: true,
       user: { select: { id: true, username: true, displayName: true, avatarUrl: true, equippedFrameValue: true } },
-      // Only the current user's own vote is exposed — others stay anonymous.
+      // All votes are visible to lobby members so voters are accountable.
       votes: {
-        where: { voterId: user.id },
-        select: { verdict: true, voterId: true },
+        select: {
+          verdict: true,
+          voterId: true,
+          createdAt: true,
+          voter: {
+            select: {
+              id: true,
+              username: true,
+              displayName: true,
+              avatarUrl: true,
+              equippedFrameValue: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
       },
       comments: {
         orderBy: { createdAt: "asc" },

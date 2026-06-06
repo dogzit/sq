@@ -43,3 +43,25 @@ export async function PUT(request: Request) {
 
   return NextResponse.json({ error: "Буруу хүсэлт" }, { status: 400 });
 }
+
+export async function DELETE(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Нэвтэрнэ үү" }, { status: 401 });
+
+  const { notificationId, notificationIds } = await request.json();
+
+  const ids: string[] = Array.isArray(notificationIds)
+    ? notificationIds.filter((x): x is string => typeof x === "string")
+    : notificationId
+      ? [notificationId]
+      : [];
+
+  if (ids.length === 0) {
+    return NextResponse.json({ error: "ID шаардлагатай" }, { status: 400 });
+  }
+
+  const { count } = await prisma.notification.deleteMany({
+    where: { id: { in: ids }, userId: user.id },
+  });
+  return NextResponse.json({ success: true, deleted: count });
+}

@@ -76,6 +76,31 @@ export default function ProfilePage() {
 
       <AnimatedList className="max-w-sm mx-auto px-4 py-4 space-y-3">
 
+        {/* ── Unclaimed achievements reminder ── */}
+        {(user?.unclaimedAchievements ?? 0) > 0 && (
+          <AnimatedItem>
+            <Link
+              href="/achievements"
+              className="block game-card p-3.5 ring-1 ring-neon-gold/40 bg-gradient-to-r from-neon-gold/10 via-neon-orange/10 to-transparent relative overflow-hidden"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl animate-wiggle">🎖️</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-foreground">
+                    {user!.unclaimedAchievements} шинэ achievement!
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    XP+ Coin шагналаа аваарай — товшоод нээ
+                  </div>
+                </div>
+                <span className="pill bg-neon-gold/25 text-neon-gold font-mono animate-sparkle-pop">
+                  Аваx →
+                </span>
+              </div>
+            </Link>
+          </AnimatedItem>
+        )}
+
         {/* ── 3:4 Profile Card ── */}
         <AnimatedItem>
           {isLoading ? (
@@ -155,12 +180,25 @@ export default function ProfilePage() {
               { href: "/history", emoji: "📜", label: "Quest түүх" },
               { href: "/trivia/mine", emoji: "🧠", label: "Миний Trivia" },
               { href: "/safe-mode", emoji: "🏕️", label: "Camping Pass" },
-            ].map(({ href, emoji, label }) => (
-              <Link key={href} href={href} className="game-card p-3 flex items-center gap-2">
-                <span className="text-lg">{emoji}</span>
-                <span className="text-sm font-medium">{label}</span>
-              </Link>
-            ))}
+            ].map(({ href, emoji, label }) => {
+              const isAchievements = href === "/achievements";
+              const badgeCount = isAchievements ? (user?.unclaimedAchievements ?? 0) : 0;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`game-card p-3 flex items-center gap-2 relative ${badgeCount > 0 ? "ring-1 ring-neon-gold/40 bg-neon-gold/5" : ""}`}
+                >
+                  <span className={`text-lg ${badgeCount > 0 ? "animate-wiggle" : ""}`}>{emoji}</span>
+                  <span className="text-sm font-medium">{label}</span>
+                  {badgeCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-neon-red text-[10px] font-bold text-white flex items-center justify-center ring-2 ring-background">
+                      {badgeCount > 9 ? "9+" : badgeCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </AnimatedItem>
 

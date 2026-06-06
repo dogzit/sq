@@ -39,13 +39,11 @@ const navItems = [
   },
   {
     href: "/users",
-    label: "Хүмүүс",
+    label: "Users",
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21a8 8 0 0 1 16 0" />
-        <circle cx="19" cy="6" r="2" />
-        <circle cx="5" cy="6" r="2" />
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
       </svg>
     ),
   },
@@ -97,6 +95,9 @@ export default function BottomNav() {
       <div className="mx-auto flex max-w-2xl items-center justify-around px-2 py-1">
         {items.map((item) => {
           const active = pathname.startsWith(item.href);
+          const isProfile = item.href === "/profile";
+          const unclaimed = isProfile ? (user?.unclaimedAchievements ?? 0) : 0;
+          const shouldNudge = unclaimed > 0 && !active;
           return (
             <Link
               key={item.href}
@@ -114,14 +115,18 @@ export default function BottomNav() {
               <motion.div
                 animate={active ? { scale: 1.1 } : { scale: 1 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className={active ? "text-neon-purple" : "text-muted-foreground"}
+                className={`relative ${active ? "text-neon-purple" : "text-muted-foreground"} ${shouldNudge ? "animate-wiggle" : ""}`}
               >
                 {item.icon}
+                {unclaimed > 0 && (
+                  <span className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-neon-red text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-background">
+                    {unclaimed > 9 ? "9+" : unclaimed}
+                  </span>
+                )}
               </motion.div>
               <span
-                className={`text-[10px] font-medium ${
-                  active ? "text-neon-purple" : "text-muted-foreground"
-                }`}
+                className={`text-[10px] font-medium ${active ? "text-neon-purple" : "text-muted-foreground"
+                  }`}
               >
                 {item.label}
               </span>

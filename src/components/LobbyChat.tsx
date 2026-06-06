@@ -37,25 +37,33 @@ function renderBodyWithMentions(body: string) {
   );
 }
 
+const PAGE_SIZE = 50;
+
 export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
   const { user } = useUser();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [sending, setSending] = useState(false);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastBottomIdRef = useRef<string | null>(null);
 
   // Initial load
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    setHasMore(true);
     fetch(`/api/lobbies/${lobbyId}/messages`)
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
-        setMessages(d.messages || []);
+        const list: ChatMessage[] = d.messages || [];
+        setMessages(list);
+        setHasMore(list.length === PAGE_SIZE);
       })
       .finally(() => alive && setLoading(false));
     return () => {
@@ -78,10 +86,55 @@ export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
     };
   }, [lobbyId]);
 
-  // Auto-scroll to bottom on new message
+  // Auto-scroll to bottom only when a NEW bottom message arrives (not when older
+  // messages get prepended by pagination).
   useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last) return;
+    if (lastBottomIdRef.current === last.id) return;
+    lastBottomIdRef.current = last.id;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages]);
+
+  // Infinite-scroll: when user scrolls near top, load older page.
+  async function loadOlder() {
+    const el = scrollRef.current;
+    if (!el || loadingMore || !hasMore || loading) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    setLoadingMore(true);
+    const prevHeight = el.scrollHeight;
+    const prevTop = el.scrollTop;
+    try {
+      const res = await fetch(
+        `/api/lobbies/${lobbyId}/messages?before=${encodeURIComponent(oldest.createdAt)}`,
+      );
+      const d = await res.json();
+      const older: ChatMessage[] = d.messages || [];
+      if (older.length === 0) {
+        setHasMore(false);
+        return;
+      }
+      if (older.length < PAGE_SIZE) setHasMore(false);
+      setMessages((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        const merged = older.filter((m) => !seen.has(m.id));
+        return [...merged, ...prev];
+      });
+      // Restore scroll position so user's view doesn't jump.
+      requestAnimationFrame(() => {
+        const node = scrollRef.current;
+        if (!node) return;
+        node.scrollTop = node.scrollHeight - prevHeight + prevTop;
+      });
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  function onScrollContainer(e: React.UIEvent<HTMLDivElement>) {
+    if (e.currentTarget.scrollTop < 120) loadOlder();
+  }
 
   async function send(e?: React.FormEvent) {
     e?.preventDefault();
@@ -118,7 +171,21 @@ export default function LobbyChat({ lobbyId }: { lobbyId: string }) {
 
   return (
     <div className="flex flex-col h-[60vh] game-card">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div
+        ref={scrollRef}
+        onScroll={onScrollContainer}
+        className="flex-1 overflow-y-auto p-3 space-y-2"
+      >
+        {loadingMore && (
+          <div className="text-center text-[10px] text-muted-foreground py-2 animate-pulse">
+            Хуучин зурвас ачаалж байна...
+          </div>
+        )}
+        {!hasMore && messages.length > 0 && !loading && (
+          <div className="text-center text-[10px] text-muted-foreground/60 py-2">
+            ── Эхлэл ──
+          </div>
+        )}
         {loading ? (
           <div className="text-center text-xs text-muted-foreground py-8 animate-pulse">
             Ачаалж байна...

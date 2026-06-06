@@ -7,6 +7,8 @@ import { AnimatedList, AnimatedItem } from "@/components/AnimatedList";
 import { useUser } from "@/lib/swr";
 import { toast } from "sonner";
 import { verifyTakenToday } from "@/lib/photo-date";
+import UserAvatar from "@/components/UserAvatar";
+import Link from "next/link";
 
 const MAX_PHOTOS = 10; // including the primary one
 
@@ -39,8 +41,18 @@ interface Submission {
   rejectCount: number;
   createdAt: string;
   user: { id: string; username: string; displayName: string; avatarUrl: string | null };
-  // Only the current user's own vote is returned by the API (others are anonymous).
-  votes: { verdict: string; voterId: string }[];
+  votes: {
+    verdict: "APPROVE" | "REJECT";
+    voterId: string;
+    createdAt: string;
+    voter: {
+      id: string;
+      username: string;
+      displayName: string;
+      avatarUrl: string | null;
+      equippedFrameValue: string | null;
+    };
+  }[];
   comments: SubmissionComment[];
   _count: { votes: number; comments: number };
 }
@@ -800,6 +812,41 @@ export default function QuestDetailPage() {
                           <span className="mx-1">·</span>
                           <span className="text-destructive font-mono">{sub.rejectCount}</span> reject
                         </div>
+                      </div>
+                    )}
+
+                    {/* Voter list — show WHO voted what */}
+                    {sub.votes.length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        {(["APPROVE", "REJECT"] as const).map((verdict) => {
+                          const voters = sub.votes.filter((v) => v.verdict === verdict);
+                          if (voters.length === 0) return null;
+                          const isApprove = verdict === "APPROVE";
+                          return (
+                            <div key={verdict} className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`pill ${isApprove ? "bg-neon-green/10 text-neon-green" : "bg-destructive/10 text-destructive"} font-mono text-[10px]`}
+                              >
+                                {isApprove ? "✓" : "✕"} {voters.length}
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {voters.map((v) => (
+                                  <Link
+                                    key={v.voterId}
+                                    href={`/users/${v.voter.username}`}
+                                    title={v.voter.displayName}
+                                    className="flex items-center gap-1 pl-1 pr-2 py-0.5 rounded-full bg-secondary hover:bg-secondary/70 transition-colors"
+                                  >
+                                    <UserAvatar user={v.voter} size={18} linkToProfile={false} />
+                                    <span className="text-[11px] font-medium truncate max-w-[80px]">
+                                      {v.voter.displayName}
+                                    </span>
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
